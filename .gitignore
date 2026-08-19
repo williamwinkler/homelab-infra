@@ -1,0 +1,8 @@
+.env
+
+# Terraform: keep terraform.tfstate tracked, ignore generated files and local values.
+**/.terraform/
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
