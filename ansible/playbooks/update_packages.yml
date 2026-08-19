@@ -1,0 +1,11 @@
+---
+- name: Update packages on all hosts
+  hosts: all
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Install all available Ubuntu packages updates
+      ansible.builtin.apt:
+        upgrade: dist
+        update_cache: true
