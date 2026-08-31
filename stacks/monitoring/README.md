@@ -129,7 +129,18 @@ Dokploy Application service attached to `observability`.
 
 This migration intentionally discards existing monitoring data.
 
-1. In Dokploy, stop and remove the old Monitoring Compose deployment.
+1. The Dokploy provider cannot change `compose_type` from `docker-compose` to
+   `stack` in place. Destroy only the disposable Compose resource and its two
+   routes through Terraform; retain the Monitoring project and environment:
+
+   ```zsh
+   cd terraform/dokploy
+   terraform destroy -var-file=common.tfvars \
+     -target=dokploy_domain.grafana \
+     -target=dokploy_domain.prometheus \
+     -target=dokploy_compose.monitoring
+   ```
+
 2. On the Dokploy host, remove the retired `observability` bridge and its old
    monitoring volumes after confirming nothing depends on them.
 3. Run the overlay prerequisite:
@@ -140,8 +151,10 @@ This migration intentionally discards existing monitoring data.
      -i inventory --ask-become-pass
    ```
 
-4. Commit and push this Stack manifest, then apply Terraform. Terraform updates
-   the existing Dokploy Monitoring resource from `docker-compose` to `stack`.
+4. Commit and push this Stack manifest, then run a normal Terraform plan and
+   apply. Terraform creates a new `stack` Compose resource and recreates the
+   Grafana and Prometheus routes under the existing Monitoring project and
+   environment.
 5. Verify Grafana and Prometheus routes, Grafana datasources, and Alloy
    readiness before attaching Application services.
 

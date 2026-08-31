@@ -96,12 +96,6 @@ services:
     networks:
       observability:
         aliases: [tempo]
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O- http://localhost:3200/ready >/dev/null"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
     deploy:
       replicas: 1
       placement:
@@ -123,13 +117,6 @@ services:
     networks:
       observability:
         aliases: [alloy]
-    healthcheck:
-      test:
-        ["CMD-SHELL", "wget -q -O- http://localhost:12345/-/ready >/dev/null"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
     deploy:
       replicas: 1
       placement:
