@@ -1,0 +1,12 @@
+---
+# Canonical Tailscale endpoint for the Dokploy server. Update the IPv4 address
+# only if the Tailscale node is recreated and receives a new address.
+homelab_dokploy_tailscale_hostname: willy-server.hale-slowworm.ts.net
+homelab_dokploy_tailscale_ipv4: 100.66.106.22
+
+# Private aliases installed by configure_homelab_hosts.yml on managed Macs.
+homelab_hosts_entries:
+  - address: "{{ homelab_dokploy_tailscale_ipv4 }}"
+    names:
+      - grafana.home.arpa
+      - prometheus.home.arpa

@@ -1,0 +1,40 @@
+{
+  "uid": "homelab-observability",
+  "title": "Homelab Observability",
+  "tags": ["homelab", "platform"],
+  "timezone": "browser",
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Healthy monitoring targets",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0},
+      "targets": [{"refId": "A", "expr": "sum(up{job=~\"alloy|loki|tempo|grafana\"})", "instant": true}],
+      "options": {"reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}, "orientation": "auto", "textMode": "auto", "colorMode": "value", "graphMode": "area"},
+      "fieldConfig": {"defaults": {"min": 0, "max": 4, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 4}]}}, "overrides": []}
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Alloy refused OTLP spans",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 16, "x": 8, "y": 0},
+      "targets": [{"refId": "A", "expr": "sum(rate(otelcol_receiver_refused_spans_total[5m]))", "legendFormat": "refused spans/s"}],
+      "fieldConfig": {"defaults": {"unit": "ops", "color": {"mode": "palette-classic"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "single"}}
+    },
+    {
+      "id": 3,
+      "type": "logs",
+      "title": "Recent Docker logs",
+      "datasource": {"type": "loki", "uid": "loki"},
+      "gridPos": {"h": 12, "w": 24, "x": 0, "y": 8},
+      "targets": [{"refId": "A", "expr": "{cluster=\"homelab\"}"}],
+      "options": {"showTime": true, "wrapLogMessage": true, "prettifyLogMessage": false, "dedupStrategy": "none", "enableLogDetails": true}
+    }
+  ]
+}

@@ -1,0 +1,131 @@
+// The single Alloy instance is both the internal OTLP gateway and the Docker
+// stdout log collector. It intentionally has no published host ports: only
+// services joined to the external `observability` bridge can reach it.
+
+prometheus.remote_write "local" {
+  endpoint {
+    url = "http://prometheus:9090/api/v1/write"
+  }
+}
+
+loki.write "local" {
+  external_labels = {
+    cluster = "homelab",
+  }
+
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+// Convert incoming OTLP metrics into Prometheus metrics, then push them to the
+// Prometheus remote-write receiver enabled in docker-compose.yml.
+otelcol.exporter.prometheus "metrics" {
+  resource_to_telemetry_conversion = true
+  forward_to                      = [prometheus.remote_write.local.receiver]
+}
+
+// This route accepts OTLP logs from any compatible producer. Container stdout
+// collection below remains the pragmatic fallback for applications that do not
+// yet emit OTLP logs.
+otelcol.exporter.loki "otlp_logs" {
+  forward_to = [loki.write.local.receiver]
+}
+
+// Tempo's OTLP gRPC receiver is internal and deliberately has no TLS because
+// it is reachable only over the private Docker bridge network on this host.
+otelcol.exporter.otlp "tempo" {
+  client {
+    endpoint = "tempo:4317"
+    tls {
+      insecure = true
+    }
+  }
+
+  retry_on_failure {
+    max_elapsed_time = "5m"
+  }
+
+  sending_queue {
+    enabled      = true
+    queue_size   = 5000
+    num_consumers = 2
+  }
+}
+
+// Bound collector memory before telemetry is batched. A full backend must
+// cause drops/retries, never unbounded memory or application backpressure.
+otelcol.processor.memory_limiter "default" {
+  check_interval = "1s"
+  limit          = "256MiB"
+  spike_limit    = "64MiB"
+
+  output {
+    metrics = [otelcol.processor.batch.default.input]
+    logs    = [otelcol.processor.batch.default.input]
+    traces  = [otelcol.processor.batch.default.input]
+  }
+}
+
+otelcol.processor.batch "default" {
+  timeout          = "5s"
+  send_batch_size  = 1024
+  send_batch_max_size = 2048
+
+  output {
+    metrics = [otelcol.exporter.prometheus.metrics.input]
+    logs    = [otelcol.exporter.loki.otlp_logs.input]
+    traces  = [otelcol.exporter.otlp.tempo.input]
+  }
+}
+
+// OpenTelemetry Protocol: both standard gRPC and HTTP receivers are available
+// for compatible telemetry producers.
+otelcol.receiver.otlp "gateway" {
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+
+  output {
+    metrics = [otelcol.processor.memory_limiter.default.input]
+    logs    = [otelcol.processor.memory_limiter.default.input]
+    traces  = [otelcol.processor.memory_limiter.default.input]
+  }
+}
+
+// Ship JSON logs written to Docker stdout. Do not use a second Alloy replica
+// for this source: every replica would read the same Docker socket and duplicate
+// log entries. Docker labels become low-cardinality Loki labels.
+discovery.docker "local" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "docker_logs" {
+  targets = discovery.docker.local.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    target_label  = "stack"
+  }
+}
+
+loki.source.docker "local" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.docker_logs.output
+  forward_to = [loki.write.local.receiver]
+}

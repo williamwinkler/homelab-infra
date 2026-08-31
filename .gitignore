@@ -1,8 +1,16 @@
 .env
 
-# Terraform: keep terraform.tfstate tracked, ignore generated files and local values.
+# Terraform: share current state and non-secret common values between laptops.
+# Terraform init recreates provider binaries from the committed lock file.
 **/.terraform/
+
+# State backups are mutable historical snapshots and may contain old secrets.
 *.tfstate.*
+!terraform/dokploy/terraform.tfstate
+
+# Keep only the reviewed, non-secret shared values and examples in Git.
 *.tfvars
+!terraform/dokploy/common.tfvars
 !*.tfvars.example
+
 crash.log

@@ -1,15 +1,11 @@
-dokploy_host         = "https://dokploy.william-winkler.com/api"
-github_provider_name = "dokploy-home-william-winkler"
-github_owner         = "williamwinkler"
-
-web = {
-  github_branch     = "master"
-  github_repository = "hs-card-web"
-  build_type        = "nixpacks"
-}
-
-api = {
-  github_branch     = "master"
-  github_repository = "hs-card-service"
-  build_type        = "dockerfile"
+// pi-lens-ignore: unknown
+dokploy_host = "https://dokploy.william-winkler.com/api"
+// pi-lens-ignore: unknown
+monitoring = {
+  github_provider_name = "dokploy-home-william-winkler"
+  github_owner         = "williamwinkler"
+  github_repository    = "homelab-infra"
+  github_branch        = "main"
+  grafana_host         = "grafana.home.arpa"
+  prometheus_host      = "prometheus.home.arpa"
 }

@@ -1,3 +1,5 @@
-Stacks
+# Stacks
 
-Different stacks/projects are stored here, to be used by either ansible or terraform.
+Version-controlled Docker Compose/Stack definitions used by Dokploy.
+
+- [Monitoring](monitoring/README.md) — Grafana, Prometheus, Loki, Tempo, and Alloy.

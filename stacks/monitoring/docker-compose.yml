@@ -1,0 +1,125 @@
+# Dokploy deploys this file with Docker Compose on one host. No service ports are
+# published directly; Dokploy/Traefik exposes only Grafana and Prometheus on
+# Tailscale-restricted HTTP routes.
+services:
+  grafana:
+    image: ${GRAFANA_IMAGE}
+    environment:
+      GF_SERVER_ROOT_URL: http://${GRAFANA_HOST}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_LOG_MODE: console
+      GF_FEATURE_TOGGLES_ENABLE: traceqlEditor
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning/datasources/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./grafana/provisioning/dashboards/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./grafana/provisioning/alerting/alerts.yml:/etc/grafana/provisioning/alerting/alerts.yml:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      observability:
+        aliases: [grafana]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q -O- http://localhost:3000/api/health | grep -q ok",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  prometheus:
+    image: ${PROMETHEUS_IMAGE}
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --storage.tsdb.retention.size=12GB
+      - --web.enable-lifecycle
+      - --web.enable-remote-write-receiver
+    volumes:
+      - prometheus-data:/prometheus
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      observability:
+        aliases: [prometheus]
+    healthcheck:
+      test:
+        ["CMD-SHELL", "wget -q -O- http://localhost:9090/-/healthy >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  loki:
+    image: ${LOKI_IMAGE}
+    command: ["-config.file=/etc/loki/loki.yml"]
+    volumes:
+      - loki-data:/loki
+      - ./loki/loki.yml:/etc/loki/loki.yml:ro
+    networks:
+      observability:
+        aliases: [loki]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:3100/ready >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  tempo:
+    image: ${TEMPO_IMAGE}
+    command: ["-config.file=/etc/tempo/tempo.yml"]
+    volumes:
+      - tempo-data:/var/tempo
+      - ./tempo/tempo.yml:/etc/tempo/tempo.yml:ro
+    networks:
+      observability:
+        aliases: [tempo]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:3200/ready >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  alloy:
+    image: ${ALLOY_IMAGE}
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --storage.path=/var/lib/alloy
+      - --server.http.listen-addr=0.0.0.0:12345
+    volumes:
+      - alloy-data:/var/lib/alloy
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      observability:
+        aliases: [alloy]
+    healthcheck:
+      test:
+        ["CMD-SHELL", "wget -q -O- http://localhost:12345/-/ready >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+networks:
+  observability:
+    name: observability
+    driver: bridge
+
+volumes:
+  grafana-data:
+  prometheus-data:
+  loki-data:
+  tempo-data:
+  alloy-data:

@@ -1,0 +1,29 @@
+---
+# Run locally on each managed Mac. This playbook does not connect to, or modify,
+# the Dokploy server; it adds private DNS-like aliases on the current machine.
+- name: Configure private homelab hostnames on this Mac
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: false
+  vars_files:
+    - ../vars/homelab.yml
+  pre_tasks:
+    - name: Require the configured Dokploy server Tailscale IP
+      ansible.builtin.assert:
+        that:
+          - homelab_dokploy_tailscale_ipv4 | length > 0
+        fail_msg: >-
+          Set homelab_dokploy_tailscale_ipv4 in ansible/vars/homelab.yml.
+
+  tasks:
+    - name: Manage homelab aliases in the local hosts file
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        insertafter: EOF
+        marker: "# {mark} ANSIBLE MANAGED HOMELAB HOSTS"
+        block: |
+          {% for entry in homelab_hosts_entries %}
+          {{ entry.address }} {{ entry.names | join(' ') }}
+          {% endfor %}
+        backup: true
