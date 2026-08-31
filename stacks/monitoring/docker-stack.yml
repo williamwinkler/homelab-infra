@@ -15,7 +15,7 @@ services:
       - ./grafana/provisioning/datasources/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
       - ./grafana/provisioning/dashboards/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
       - ./grafana/provisioning/alerting/delete-rules.yml:/etc/grafana/provisioning/alerting/delete-rules.yml:ro
-      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+      - ./grafana/dashboards/platform/overview.json:/etc/grafana/provisioning/dashboards/overview.json:ro
     networks:
       observability:
         aliases: [grafana]

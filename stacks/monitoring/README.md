@@ -104,8 +104,9 @@ copying live Prometheus, Loki, or Tempo data.
 ## Grafana configuration
 
 Datasources and dashboards are read-only provisioning bind mounts from this
-repository. The dashboard directory is mounted at `/etc/grafana/dashboards`,
-outside Grafana's persistent data volume.
+repository. The dashboard JSON is mounted directly into Grafana's existing
+`/etc/grafana/provisioning/dashboards` directory, outside its persistent data
+volume.
 
 No active alert rules or contact points are provisioned. Add a contact point
 before adding alert rules; Grafana otherwise attempts its default SMTP notifier.
