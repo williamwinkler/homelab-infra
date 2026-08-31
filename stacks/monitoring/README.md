@@ -122,11 +122,12 @@ encrypted off-host backup and test restoration.
 
 ## Grafana configuration
 
-Use Grafana provisioning files for data sources, dashboards, and initial alert
-rules. In Compose they are read-only bind mounts from this repository. Use the
-Grafana UI to develop or debug a dashboard, export its JSON, remove its numeric
-`id`, commit it, then redeploy. Do not manually maintain production dashboards
-in the UI.
+Use Grafana provisioning files for data sources and dashboards. In Compose they
+are read-only bind mounts from this repository. Use the Grafana UI to develop or
+debug a dashboard, export its JSON, remove its numeric `id`, commit it, then
+redeploy. Do not manually maintain production dashboards in the UI. Configure
+an alert contact point before adding alert rules; Grafana otherwise attempts its
+default SMTP notifier, which is intentionally not configured in this stack.
 
 Grafana Terraform is optional later for API-only resources such as service
 accounts, teams, or RBAC. It requires Grafana to exist first plus an API token

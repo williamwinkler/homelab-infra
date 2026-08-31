@@ -1,0 +1,6 @@
+apiVersion: 1
+# Remove the original bootstrap rule if it was provisioned before alerting was
+# disabled. Keeping this declaration is idempotent when the rule is absent.
+deleteRules:
+  - orgId: 1
+    uid: monitoring-target-down

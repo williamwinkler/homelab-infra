@@ -25,9 +25,10 @@ resource "dokploy_project" "monitoring" {
   description = "Self-hosted Grafana, Prometheus, Loki, Tempo, and Alloy"
 }
 
+# Dokploy normalizes every environment description to this provider value.
 resource "dokploy_environment" "monitoring" {
   name        = "production"
-  description = "Production monitoring stack"
+  description = "Production environment"
   project_id  = dokploy_project.monitoring.id
 }
 

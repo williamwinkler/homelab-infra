@@ -14,8 +14,8 @@ services:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning/datasources/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
       - ./grafana/provisioning/dashboards/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
-      - ./grafana/provisioning/alerting/alerts.yml:/etc/grafana/provisioning/alerting/alerts.yml:ro
-      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./grafana/provisioning/alerting/delete-rules.yml:/etc/grafana/provisioning/alerting/delete-rules.yml:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
     networks:
       observability:
         aliases: [grafana]
@@ -118,8 +118,8 @@ networks:
     driver: bridge
 
 volumes:
-  grafana-data:
-  prometheus-data:
-  loki-data:
-  tempo-data:
-  alloy-data:
+  grafana-data: {}
+  prometheus-data: {}
+  loki-data: {}
+  tempo-data: {}
+  alloy-data: {}
