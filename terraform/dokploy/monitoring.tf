@@ -22,7 +22,7 @@ locals {
 
 resource "dokploy_project" "monitoring" {
   name        = "Monitoring"
-  description = "Self-hosted Grafana, Prometheus, Loki, Tempo, and Alloy"
+  description = "📊 Self-hosted Grafana, Prometheus, Loki, Tempo, and Alloy"
 }
 
 # Dokploy normalizes every environment description to this provider value.
@@ -30,6 +30,12 @@ resource "dokploy_environment" "monitoring" {
   name        = "production"
   description = "Production environment"
   project_id  = dokploy_project.monitoring.id
+
+  # The provider marks project_id unknown while updating project metadata, then
+  # plans an invalid replacement of Dokploy's undeletable default environment.
+  lifecycle {
+    ignore_changes = [project_id]
+  }
 }
 
 # Dokploy clones this repository before it deploys the stack. This is required
