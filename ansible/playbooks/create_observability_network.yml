@@ -1,0 +1,56 @@
+---
+- name: Create the shared observability Swarm overlay
+  hosts: dokploy_servers
+  become: true
+  gather_facts: false
+
+  tasks:
+      - name: Inspect the observability network
+        ansible.builtin.command:
+            argv:
+                - docker
+                - network
+                - inspect
+                - observability
+        register: observability_network_inspect
+        changed_when: false
+        failed_when: observability_network_inspect.rc not in [0, 1]
+
+      - name: Create the attachable observability overlay
+        ansible.builtin.command:
+            argv:
+                - docker
+                - network
+                - create
+                - --driver
+                - overlay
+                - --attachable
+                - observability
+        when: observability_network_inspect.rc == 1
+        register: observability_network_create
+        changed_when: observability_network_create.rc == 0
+
+      - name: Inspect the resulting observability network
+        ansible.builtin.command:
+            argv:
+                - docker
+                - network
+                - inspect
+                - observability
+        register: observability_network_details
+        changed_when: false
+
+      - name: Parse observability network details
+        ansible.builtin.set_fact:
+            observability_network: "{{ (observability_network_details.stdout | from_json) | first }}"
+
+      - name: Require the attachable Swarm overlay contract
+        ansible.builtin.assert:
+            that:
+                - observability_network.Driver == "overlay"
+                - observability_network.Scope == "swarm"
+                - observability_network.Attachable | bool
+            fail_msg: >-
+                The existing observability network is not an attachable Swarm overlay.
+                Remove the retired Compose bridge after stopping the old monitoring
+                deployment, then run this playbook again.

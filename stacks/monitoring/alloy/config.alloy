@@ -19,7 +19,7 @@ loki.write "local" {
 }
 
 // Convert incoming OTLP metrics into Prometheus metrics, then push them to the
-// Prometheus remote-write receiver enabled in docker-compose.yml.
+// Prometheus remote-write receiver enabled in docker-stack.yml.
 otelcol.exporter.prometheus "metrics" {
   resource_to_telemetry_conversion = true
   forward_to                      = [prometheus.remote_write.local.receiver]
@@ -33,7 +33,7 @@ otelcol.exporter.loki "otlp_logs" {
 }
 
 // Tempo's OTLP gRPC receiver is internal and deliberately has no TLS because
-// it is reachable only over the private Docker bridge network on this host.
+// it is reachable only over the private observability overlay network.
 otelcol.exporter.otlp "tempo" {
   client {
     endpoint = "tempo:4317"
@@ -114,12 +114,12 @@ discovery.relabel "docker_logs" {
   }
 
   rule {
-    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    source_labels = ["__meta_docker_container_label_com_docker_swarm_service_name"]
     target_label  = "service"
   }
 
   rule {
-    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    source_labels = ["__meta_docker_container_label_com_docker_stack_namespace"]
     target_label  = "stack"
   }
 }

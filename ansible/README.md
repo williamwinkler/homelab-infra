@@ -12,6 +12,18 @@ brew install ansible
 ansible-playbook playbooks/update_packages.yml -i inventory --ask-become-pass
 ```
 
+## Prepare the observability overlay
+
+Run this on the Dokploy server before deploying the Monitoring Swarm Stack. It
+creates `observability` as an attachable overlay so Dokploy Application services
+can reach Alloy. It fails if the old Compose bridge with the same name still
+exists; stop and remove that retired deployment first.
+
+```zsh
+ansible-playbook playbooks/create_observability_network.yml \
+  -i inventory --ask-become-pass
+```
+
 ## Configure friendly homelab names on a Mac
 
 Run this locally on each managed MacBook. It creates one clearly marked,

@@ -45,13 +45,13 @@ resource "dokploy_compose" "monitoring" {
   description    = "Single-node LGTM monitoring stack"
   environment_id = dokploy_environment.monitoring.id
   source_type    = "github"
-  compose_type   = "docker-compose"
+  compose_type   = "stack"
 
   github_id    = local.monitoring_github_provider.id
   owner        = var.monitoring.github_owner
   repository   = var.monitoring.github_repository
   branch       = var.monitoring.github_branch
-  compose_path = "stacks/monitoring/docker-compose.yml"
+  compose_path = "stacks/monitoring/docker-stack.yml"
 
   # Values in this string are available for Compose interpolation only. Do not
   # put Grafana admin passwords, SMTP credentials, or API keys here: Terraform
@@ -69,7 +69,7 @@ resource "dokploy_compose" "monitoring" {
 }
 
 # Dokploy owns the HTTP-only Traefik routes. The host firewall permits access
-# to them only via Tailscale. All other stack services remain bridge-only.
+# to them only via Tailscale. All other stack services remain overlay-only.
 resource "dokploy_domain" "grafana" {
   compose_id         = dokploy_compose.monitoring.id
   service_name       = "grafana"

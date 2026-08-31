@@ -1,6 +1,6 @@
-# Dokploy deploys this file with Docker Compose on one host. No service ports are
-# published directly; Dokploy/Traefik exposes only Grafana and Prometheus on
-# Tailscale-restricted HTTP routes.
+# Dokploy deploys this file as a Docker Swarm stack on one permanent manager.
+# No service ports are published directly; Traefik exposes only Grafana and
+# Prometheus through Tailscale-restricted HTTP routes.
 services:
   grafana:
     image: ${GRAFANA_IMAGE}
@@ -29,7 +29,12 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
-    restart: unless-stopped
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      restart_policy:
+        condition: any
 
   prometheus:
     image: ${PROMETHEUS_IMAGE}
@@ -53,7 +58,12 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
-    restart: unless-stopped
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      restart_policy:
+        condition: any
 
   loki:
     image: ${LOKI_IMAGE}
@@ -70,7 +80,12 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
-    restart: unless-stopped
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      restart_policy:
+        condition: any
 
   tempo:
     image: ${TEMPO_IMAGE}
@@ -87,7 +102,12 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
-    restart: unless-stopped
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      restart_policy:
+        condition: any
 
   alloy:
     image: ${ALLOY_IMAGE}
@@ -110,12 +130,20 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
-    restart: unless-stopped
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      restart_policy:
+        condition: any
 
+# The overlay is created by Ansible because the Dokploy provider has no Docker
+# network resource. `attachable` lets ordinary Docker clients and Dokploy
+# Swarm Application services join it.
 networks:
   observability:
+    external: true
     name: observability
-    driver: bridge
 
 volumes:
   grafana-data: {}
