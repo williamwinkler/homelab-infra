@@ -1,5 +1,5 @@
 // pi-lens-ignore: unknown
-dokploy_host = "https://dokploy.william-winkler.com/api"
+dokploy_host = "http://willy-server.hale-slowworm.ts.net:3000/api"
 // pi-lens-ignore: unknown
 monitoring = {
   github_provider_name = "dokploy-home-william-winkler"

@@ -63,7 +63,9 @@ resource "dokploy_compose" "monitoring" {
     "GRAFANA_HOST=${var.monitoring.grafana_host}",
   ])
 
-  auto_deploy      = true
+  # Deploy this GitHub-backed Stack deliberately from Dokploy; it must not
+  # redeploy whenever a repository push changes a watched path.
+  auto_deploy      = false
   deploy_on_create = true
   watch_paths      = ["stacks/monitoring/**"]
 }
