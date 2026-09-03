@@ -40,6 +40,9 @@ services:
     image: ${PROMETHEUS_IMAGE}
     command:
       - --config.file=/etc/prometheus/prometheus.yml
+      # Dokploy updates this bind-mounted file in place; reload it without
+      # requiring a manual service restart after each Stack deployment.
+      - --config.auto-reload-interval=120s
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=15d
       - --storage.tsdb.retention.size=12GB
