@@ -32,6 +32,7 @@ stacks/monitoring/
   docker-stack.yml                           # single-host Swarm service definition
   dokploy.env                                # non-secret immutable image refs
   alloy/config.alloy                         # OTLP gateway + Docker stdout collector
+  blackbox/blackbox.yml                      # HTTP probe module definitions
   prometheus/prometheus.yml
   loki/loki.yml
   tempo/tempo.yml
@@ -110,6 +111,19 @@ volume.
 
 No active alert rules or contact points are provisioned. Add a contact point
 before adding alert rules; Grafana otherwise attempts its default SMTP notifier.
+
+## Availability probes
+
+Prometheus invokes the private Blackbox Exporter with its `http_2xx` module
+once every 30 seconds to probe these public HTTPS endpoints:
+
+- `https://hscards.william-winkler.com`
+- `https://william-winkler.com`
+
+The `blackbox_https` job exposes `probe_success` (`1` is online, `0` is a
+failed probe), response timing, DNS, TLS, and HTTP-status metrics. The
+exporter is only reachable on the `observability` overlay; do not publish its
+port 9115.
 
 ## Telemetry producer contract
 

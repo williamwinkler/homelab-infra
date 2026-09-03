@@ -1,0 +1,10 @@
+# HTTPS availability probes are configured by Prometheus, which invokes this
+# named module through the exporter. Prometheus's 10-second scrape timeout
+# bounds every probe.
+modules:
+  http_2xx:
+    prober: http
+    http:
+      # Avoid false failures when a target advertises IPv6 but the probe host
+      # has no usable IPv6 egress.
+      preferred_ip_protocol: ip4

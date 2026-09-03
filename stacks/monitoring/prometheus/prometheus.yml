@@ -19,6 +19,26 @@ scrape_configs:
     static_configs:
       - targets: ["grafana:3000"]
 
+  - job_name: blackbox_exporter
+    static_configs:
+      - targets: ["blackbox:9115"]
+
+  - job_name: blackbox_https
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - https://hscards.william-winkler.com
+          - https://william-winkler.com
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
   - job_name: loki
     static_configs:
       - targets: ["loki:3100"]
