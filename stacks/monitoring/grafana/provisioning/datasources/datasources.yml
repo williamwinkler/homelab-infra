@@ -12,6 +12,9 @@ datasources:
     jsonData:
       httpMethod: POST
       exemplarTraceIdDestinations:
+        # Alloy's OTLP conversion and Tempo's generator use different keys.
+        - name: trace_id
+          datasourceUid: tempo
         - name: traceID
           datasourceUid: tempo
 
@@ -24,12 +27,7 @@ datasources:
     jsonData:
       derivedFields:
         - name: TraceID
-          matcherRegex: 'trace_id[=": ]+([a-f0-9]{32})'
-          url: "$${__value.raw}"
-          datasourceUid: tempo
-          urlDisplayLabel: View trace
-        - name: Trace
-          matcherRegex: '"trace"\s*:\s*"([a-f0-9]{32})"'
+          matcherRegex: '(?:trace_?id|trace)[=": ]+([a-f0-9]{32})'
           url: "$${__value.raw}"
           datasourceUid: tempo
           urlDisplayLabel: View trace
@@ -45,12 +43,26 @@ datasources:
         datasourceUid: loki
         spanStartTimeShift: "-5m"
         spanEndTimeShift: "5m"
-        tags: [{ key: service.name, value: service }]
+        # Trace-ID filtering is exact; omitting environment preserves links to
+        # historical stdout logs written before environment labels were added.
+        tags: [{ key: service.name, value: service_name }]
         filterByTraceID: true
         filterBySpanID: false
       tracesToMetrics:
         datasourceUid: prometheus
-        tags: [{ key: service.name, value: service }]
+        spanStartTimeShift: "-5m"
+        spanEndTimeShift: "5m"
+        tags:
+          - { key: service.name, value: service_name }
+          - { key: deployment.environment, value: deployment_environment }
         queries:
-          - name: Request rate
-            query: "sum(rate(traces_spanmetrics_calls_total{$$__tags}[5m]))"
+          - name: Server request rate (sampled traces)
+            query: 'sum by (span_name) (rate(traces_spanmetrics_calls_total{$$__tags,span_kind="SPAN_KIND_SERVER"}[5m]))'
+          - name: Server p95 latency in ms (sampled traces)
+            query: '1000 * histogram_quantile(0.95, sum by (le) (rate(traces_spanmetrics_latency_bucket{$$__tags,span_kind="SPAN_KIND_SERVER"}[5m])))'
+          - name: Server error rate (sampled traces)
+            query: 'sum by (span_name) (rate(traces_spanmetrics_calls_total{$$__tags,span_kind="SPAN_KIND_SERVER",status_code="STATUS_CODE_ERROR"}[5m]))'
+      serviceMap:
+        datasourceUid: prometheus
+      nodeGraph:
+        enabled: true

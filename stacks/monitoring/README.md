@@ -37,7 +37,8 @@ stacks/monitoring/
   loki/loki.yml
   tempo/tempo.yml
   grafana/provisioning/                      # datasources and dashboard loader
-  grafana/dashboards/                        # version-controlled dashboard JSON
+  grafana/dashboards/                        # Platform + opt-in application dashboards
+  validate.py                                # read-only pinned-image configuration checks
 ```
 
 ## Ownership
@@ -105,12 +106,48 @@ copying live Prometheus, Loki, or Tempo data.
 ## Grafana configuration
 
 Datasources and dashboards are read-only provisioning bind mounts from this
-repository. The dashboard JSON is mounted directly into Grafana's existing
-`/etc/grafana/provisioning/dashboards` directory, outside its persistent data
-volume.
+repository, outside Grafana's persistent data volume. The existing overview
+lives in **Platform**. Application dashboards use the separate **Applications**
+folder and `/etc/grafana/dashboards/applications` provider path. Mount individual
+JSON files, not the data volume or a directory that hides existing provisioning.
+
+The shared stack and data sources remain application-agnostic. Project-specific
+metrics and queries belong in application dashboards, not collector filters or
+shared trace-to-metrics links. **Applications → Tikkit API** is the first such
+dashboard (`/d/tikkit-api`): RPC outcomes/latency, database timing, BEAM health,
+related logs and RPC traces. Its environment/action filters and Explore links
+preserve investigation context. Database/VM/log panels are service-scoped, not
+RPC-action-scoped; an aggregate graph cannot identify every individual request.
 
 No active alert rules or contact points are provisioned. Add a contact point
 before adding alert rules; Grafana otherwise attempts its default SMTP notifier.
+Choose actionable sustained error/latency conditions and link alerts to the
+relevant dashboard. Expected validation/rate-limit responses should not
+indiscriminately page as internal service failures.
+
+### Cross-signal navigation
+
+| From → to | Provisioned behavior |
+| --- | --- |
+| Logs → trace | Extract `trace_id`, `traceid`, or LoggerJSON's `trace` and open Tempo. |
+| Trace → logs | Match `service.name` to Loki `service_name`, then filter the exact trace ID within ±5 minutes. |
+| Trace → metrics | Match service/environment and open generic server rate, error rate, and p95 latency queries. |
+| Metric → trace | Grafana recognizes both Alloy's `trace_id` and Tempo's `traceID` exemplars. |
+| Dashboard → logs/traces | Application-specific Explore links retain the selected time range and identity. |
+| Service dependencies | Tempo generates service-graph metrics; its Grafana data source points to Prometheus. |
+
+Tempo's `service-graphs` and `span-metrics` processors are explicitly enabled.
+Their metrics reflect **received/sampled spans**, not necessarily all requests.
+They complement rather than replace application counters used for SLOs. Service
+maps require suitable client/server/database spans; configuration cannot invent
+missing instrumentation. Existing stored traces are not retroactively turned
+into generator metrics.
+
+Prometheus exemplar storage is enabled (default bounded 100,000-exemplar ring),
+and Alloy/Tempo forward exemplars. A producer must still emit them with trace
+context. A graph point links to an **example** request, not every request in its
+aggregate. Sampling, trace retention, and exemplar-ring eviction can make a link
+unavailable. No trace IDs or request/user IDs are added as metric labels.
 
 ## Availability probes
 
@@ -131,12 +168,31 @@ This stack accepts standard OpenTelemetry Protocol telemetry from any compatible
 Dokploy Application service attached to `observability`.
 
 - Send traces and metrics to `http://alloy:4318` using OTLP/HTTP, or gRPC to
-  `alloy:4317`.
+  `alloy:4317`. Give each resource a stable `service.name`, optional
+  `service.namespace`/`service.version`, and an explicit deployment environment.
+  Prefer `deployment.environment.name` for new producers; Alloy adds the legacy
+  `deployment.environment` alias when absent, retaining compatibility with
+  existing applications. The common query label is `deployment_environment`.
+  Do not infer deployment environment from a production compiler build.
 - Configure batching, finite timeouts, and retry limits so telemetry failures
   never affect application requests.
-- Write structured JSON logs to container stdout. Alloy collects Swarm task
-  logs through the Docker socket; include a lowercase 32-character `trace_id`
-  field when available for Loki-to-Tempo links.
+- Write structured JSON logs to container stdout. Alloy collects container and
+  Swarm task logs through the Docker socket. Include lowercase `trace_id`
+  (32 hex characters) and `span_id` (16) when available. LoggerJSON's `trace`
+  and `span` fields are supported too.
+- Include `service_name`, `service_namespace`, `deployment_environment`, and
+  `service_version` at JSON top level or inside `metadata`, using the same
+  identity as the OTel resource. Alloy promotes only service, namespace, and
+  environment to labels; version and trace/span IDs remain structured metadata.
+  Docker service/container names are fallbacks, not substitutes for explicit
+  resource identity (Dokploy service names may differ from `service.name`).
+- Producers using OTLP logs instead of stdout receive the same bounded identity
+  labels through the Loki exporter's resource-label hint, unless they explicitly
+  override that hint. This does not require application-specific collector code.
+- Existing logs are not relabeled retroactively. Trace-to-log links deliberately
+  use service + exact trace ID, without requiring an environment label, so older
+  logs remain reachable. Filtering a dashboard to a specific environment only
+  includes logs that actually carry that label.
 - Avoid simultaneous Docker-stdout and OTLP log export unless duplicate logs
   are intentional.
 
@@ -175,6 +231,41 @@ This migration intentionally discards existing monitoring data.
 
 > Run these commands yourself; this repository does not apply Ansible or
 > Terraform automatically.
+
+## Validation and local development
+
+Before deployment, from the repository root:
+
+```sh
+python3 stacks/monitoring/validate.py
+```
+
+This uses Python's standard library and the pinned images already cached in
+Docker. It checks manifest interpolation, dashboard JSON/IDs, Alloy, Tempo,
+and Prometheus configuration. Validation containers have no network, published
+ports, or persistent data volumes. It does not apply Terraform/Ansible or deploy
+services. Grafana provisioning is additionally validated by Grafana at startup.
+
+After deployment, verify:
+
+1. All six services are healthy and Grafana's three data sources pass health checks.
+2. The Applications dashboard loads; run its PromQL, LogQL, and TraceQL queries.
+   Sparse traffic produces gaps/NaN latency, not evidence of a broken pipeline.
+3. Generate fresh requests; locate their logs and follow the trace link back.
+4. From a trace, check related logs and generic metrics. Span metrics only start
+   accumulating after the processors are enabled.
+5. Query Prometheus `/api/v1/query_exemplars` for a histogram and resolve one of
+   its trace IDs in Tempo. Both transport and retained trace existence matter.
+6. Confirm Grafana's service map once client/dependency spans have arrived.
+
+The local Docker Desktop Swarm may have manual overrides (Grafana on port 3000,
+Docker Desktop's socket mount). Preserve those when applying targeted local
+service updates; do not copy them into the private Dokploy production manifest.
+Confirm `docker context show` and service bind-mount sources before updating.
+A Prometheus flag change and Tempo processor activation require their services
+to restart; Alloy supports its reload endpoint. Provisioning can be reloaded via
+Grafana's admin API, while a new dashboard bind mount requires a Grafana service
+update. Never remove the stack or its volumes to apply these changes.
 
 ## Operations
 

@@ -16,6 +16,7 @@ services:
       - ./grafana/provisioning/dashboards/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
       - ./grafana/provisioning/alerting/delete-rules.yml:/etc/grafana/provisioning/alerting/delete-rules.yml:ro
       - ./grafana/dashboards/platform/overview.json:/etc/grafana/provisioning/dashboards/overview.json:ro
+      - ./grafana/dashboards/applications/tikkit-api.json:/etc/grafana/dashboards/applications/tikkit-api.json:ro
     networks:
       observability:
         aliases: [grafana]
@@ -48,6 +49,8 @@ services:
       - --storage.tsdb.retention.size=12GB
       - --web.enable-lifecycle
       - --web.enable-remote-write-receiver
+      # Store trace references alongside metric observations (bounded buffer).
+      - --enable-feature=exemplar-storage
     volumes:
       - prometheus-data:/prometheus
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro

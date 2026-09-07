@@ -1,10 +1,11 @@
 // The single Alloy instance is both the internal OTLP gateway and the Docker
 // stdout log collector. It intentionally has no published host ports: only
-// services joined to the external `observability` bridge can reach it.
+// services joined to the external `observability` overlay can reach it.
 
 prometheus.remote_write "local" {
   endpoint {
-    url = "http://prometheus:9090/api/v1/write"
+    url            = "http://prometheus:9090/api/v1/write"
+    send_exemplars = true
   }
 }
 
@@ -59,6 +60,43 @@ otelcol.processor.memory_limiter "default" {
   check_interval = "1s"
   limit          = "256MiB"
   spike_limit    = "64MiB"
+
+  output {
+    metrics = [otelcol.processor.transform.identity.input]
+    logs    = [otelcol.processor.transform.identity.input]
+    traces  = [otelcol.processor.transform.identity.input]
+  }
+}
+
+// Newer OTel producers use deployment.environment.name. Retain a legacy alias
+// so existing dashboards and producers can share one environment label. Never
+// overwrite an explicit legacy value or manufacture an environment when absent.
+otelcol.processor.transform "identity" {
+  error_mode = "ignore"
+
+  metric_statements {
+    context = "resource"
+    statements = [
+      `set(attributes["deployment.environment"], attributes["deployment.environment.name"]) where attributes["deployment.environment"] == nil and attributes["deployment.environment.name"] != nil`,
+    ]
+  }
+
+  trace_statements {
+    context = "resource"
+    statements = [
+      `set(attributes["deployment.environment"], attributes["deployment.environment.name"]) where attributes["deployment.environment"] == nil and attributes["deployment.environment.name"] != nil`,
+    ]
+  }
+
+  log_statements {
+    context = "resource"
+    statements = [
+      `set(attributes["deployment.environment"], attributes["deployment.environment.name"]) where attributes["deployment.environment"] == nil and attributes["deployment.environment.name"] != nil`,
+      // The Loki exporter uses this built-in hint to promote bounded resource
+      // identity, matching Docker stdout labels. Respect producer overrides.
+      `set(attributes["loki.resource.labels"], "service.name,service.namespace,deployment.environment") where attributes["loki.resource.labels"] == nil`,
+    ]
+  }
 
   output {
     metrics = [otelcol.processor.batch.default.input]
@@ -122,10 +160,57 @@ discovery.relabel "docker_logs" {
     source_labels = ["__meta_docker_container_label_com_docker_stack_namespace"]
     target_label  = "stack"
   }
+
+  // Stable fallback identity for ordinary containers and Swarm services.
+  // Structured application metadata below takes precedence over Docker names.
+  rule {
+    source_labels = ["container"]
+    target_label  = "service_name"
+  }
+
+  rule {
+    source_labels = ["service"]
+    regex         = "(.+)"
+    target_label  = "service_name"
+  }
 }
 
 loki.source.docker "local" {
   host       = "unix:///var/run/docker.sock"
   targets    = discovery.relabel.docker_logs.output
+  forward_to = [loki.process.docker.receiver]
+}
+
+// Preserve raw log lines (including non-JSON output). Only bounded identity
+// fields become labels; trace/span IDs and deployment versions are metadata,
+// not indexed Loki labels. This is also compatible with LoggerJSON's fields.
+loki.process "docker" {
   forward_to = [loki.write.local.receiver]
+
+  stage.json {
+    expressions = {
+      service_name           = "service_name || metadata.service_name",
+      service_namespace      = "service_namespace || metadata.service_namespace",
+      deployment_environment = "deployment_environment || metadata.deployment_environment",
+      service_version        = "service_version || metadata.service_version",
+      trace_id               = "trace_id || trace || metadata.trace_id",
+      span_id                = "span_id || span || metadata.span_id",
+    }
+  }
+
+  stage.labels {
+    values = {
+      service_name           = "",
+      service_namespace      = "",
+      deployment_environment = "",
+    }
+  }
+
+  stage.structured_metadata {
+    values = {
+      trace_id        = "",
+      span_id         = "",
+      service_version = "",
+    }
+  }
 }

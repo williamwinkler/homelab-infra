@@ -35,7 +35,18 @@ metrics_generator:
         send_exemplars: true
   processor:
     service_graphs: {}
-    span_metrics: {}
+    span_metrics:
+      # Match the resource labels on application OTLP metrics. Keep the native
+      # `service` intrinsic dimension too: Grafana's service map relies on it.
+      dimensions: [service.name, deployment.environment]
   registry:
     external_labels:
       cluster: homelab
+
+# Configuring the generator above does not activate its processors.
+# These derive sampled-span RED metrics and service dependencies, not a second
+# copy of application counters. Application metrics remain the SLO source.
+overrides:
+  defaults:
+    metrics_generator:
+      processors: [service-graphs, span-metrics]
