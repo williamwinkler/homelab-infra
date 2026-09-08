@@ -135,6 +135,90 @@ otelcol.receiver.otlp "gateway" {
   }
 }
 
+// Container CPU/cgroup memory: embedded cAdvisor, not an app scrape endpoint
+// or a separate privileged service. CPU/memory only need the Docker socket,
+// read-only /sys and Docker's data directory (see docker-stack.yml).
+prometheus.exporter.cadvisor "containers" {
+  docker_only               = true
+  disable_root_cgroup_stats = true
+  enabled_metrics           = ["cpu", "memory"]
+  store_container_labels    = false
+  allowlisted_container_labels = [
+    "service.name",
+    "deployment.environment",
+    "deployment.environment.name",
+    "com.docker.swarm.service.name",
+  ]
+}
+
+prometheus.scrape "containers" {
+  targets         = prometheus.exporter.cadvisor.containers.targets
+  job_name        = "integrations/cadvisor"
+  scrape_interval = "15s"
+  scrape_timeout  = "10s"
+  forward_to      = [prometheus.relabel.containers.receiver]
+}
+
+prometheus.relabel "containers" {
+  forward_to = [prometheus.remote_write.local.receiver]
+
+  // Keep only the resource signals used for capacity investigation.
+  rule {
+    source_labels = ["__name__"]
+    regex = "container_(cpu_usage_seconds_total|cpu_cfs_periods_total|cpu_cfs_throttled_periods_total|cpu_cfs_throttled_seconds_total|spec_cpu_quota|spec_cpu_period|memory_working_set_bytes|memory_usage_bytes|spec_memory_limit_bytes|last_seen)"
+    action = "keep"
+  }
+  rule {
+    source_labels = ["name"]
+    regex         = ".+"
+    action        = "keep"
+  }
+  rule {
+    target_label = "instance"
+    replacement  = coalesce(sys.env("ALLOY_NODE_NAME"), constants.hostname)
+  }
+  rule {
+    source_labels = ["name"]
+    regex         = "/?(.*)"
+    target_label  = "container"
+  }
+  rule {
+    source_labels = ["id"]
+    target_label  = "container_id"
+  }
+  rule {
+    source_labels = ["container"]
+    target_label  = "service_name"
+  }
+  rule {
+    source_labels = ["container_label_com_docker_swarm_service_name"]
+    regex         = "(.+)"
+    target_label  = "service_name"
+  }
+  rule {
+    source_labels = ["container_label_service_name"]
+    regex         = "(.+)"
+    target_label  = "service_name"
+  }
+  // Docker labels are explicit deployment metadata; do not inspect arbitrary
+  // container env vars or guess the environment from a name/Mix build mode.
+  rule {
+    source_labels = ["container_label_deployment_environment"]
+    regex         = "(.+)"
+    target_label  = "deployment_environment"
+  }
+  rule {
+    source_labels = ["deployment_environment", "container_label_deployment_environment_name"]
+    separator     = ";"
+    regex         = ";(.+)"
+    target_label  = "deployment_environment"
+  }
+  rule {
+    regex  = "id|name|image|container_label_.*"
+    action = "labeldrop"
+  }
+}
+
 // Ship JSON logs written to Docker stdout. Do not use a second Alloy replica
 // for this source: every replica would read the same Docker socket and duplicate
 // log entries. Docker labels become low-cardinality Loki labels.

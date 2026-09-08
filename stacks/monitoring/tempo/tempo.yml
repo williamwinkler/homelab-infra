@@ -28,12 +28,21 @@ storage:
       path: /var/tempo/blocks
 
 metrics_generator:
+  # TraceQL metrics/Drilldown need a trace WAL separate from Prometheus' WAL.
+  # Both live on the existing persistent Tempo volume.
+  traces_storage:
+    path: /var/tempo/generator/traces
   storage:
     path: /var/tempo/generator/wal
     remote_write:
       - url: http://prometheus:9090/api/v1/write
         send_exemplars: true
   processor:
+    local_blocks:
+      # Drilldown also queries client/internal spans, not only server spans.
+      filter_server_spans: false
+      # Persist metrics blocks so queries work beyond the recent-data window.
+      flush_to_storage: true
     service_graphs: {}
     span_metrics:
       # Match the resource labels on application OTLP metrics. Keep the native
@@ -44,9 +53,10 @@ metrics_generator:
       cluster: homelab
 
 # Configuring the generator above does not activate its processors.
-# These derive sampled-span RED metrics and service dependencies, not a second
-# copy of application counters. Application metrics remain the SLO source.
+# Span metrics/service graphs derive sampled-span RED/dependency metrics;
+# local-blocks serves TraceQL metrics used by Grafana Traces Drilldown.
+# Application counters remain the SLO source.
 overrides:
   defaults:
     metrics_generator:
-      processors: [service-graphs, span-metrics]
+      processors: [service-graphs, span-metrics, local-blocks]

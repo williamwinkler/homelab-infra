@@ -11,13 +11,13 @@ providers:
     options:
       path: /etc/grafana/provisioning/dashboards
 
-  - name: applications
+  - name: tikkit
     orgId: 1
-    folder: Applications
-    folderUid: applications
+    folder: TIKKIT
+    folderUid: tikkit
     type: file
     disableDeletion: false
     updateIntervalSeconds: 30
     allowUiUpdates: false
     options:
-      path: /etc/grafana/dashboards/applications
+      path: /etc/grafana/dashboards/tikkit

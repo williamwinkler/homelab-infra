@@ -16,7 +16,10 @@ services:
       - ./grafana/provisioning/dashboards/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
       - ./grafana/provisioning/alerting/delete-rules.yml:/etc/grafana/provisioning/alerting/delete-rules.yml:ro
       - ./grafana/dashboards/platform/overview.json:/etc/grafana/provisioning/dashboards/overview.json:ro
-      - ./grafana/dashboards/applications/tikkit-api.json:/etc/grafana/dashboards/applications/tikkit-api.json:ro
+      - ./grafana/dashboards/applications/tikkit-api.json:/etc/grafana/dashboards/tikkit/tikkit-api.json:ro
+      - ./grafana/dashboards/applications/tikkit-rpc.json:/etc/grafana/dashboards/tikkit/tikkit-rpc.json:ro
+      - ./grafana/dashboards/applications/tikkit-organizations.json:/etc/grafana/dashboards/tikkit/tikkit-organizations.json:ro
+      - ./grafana/dashboards/applications/tikkit-runtime.json:/etc/grafana/dashboards/tikkit/tikkit-runtime.json:ro
     networks:
       observability:
         aliases: [grafana]
@@ -126,6 +129,9 @@ services:
 
   alloy:
     image: ${ALLOY_IMAGE}
+    environment:
+      # Docker Swarm expands this for the task, including in Dokploy stacks.
+      ALLOY_NODE_NAME: "{{.Node.Hostname}}"
     command:
       - run
       - /etc/alloy/config.alloy
@@ -135,6 +141,10 @@ services:
       - alloy-data:/var/lib/alloy
       - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      # CPU/memory cgroups plus Docker layer metadata; no privileged mode,
+      # host PID namespace, rootfs mount, or container filesystem metrics.
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
     networks:
       observability:
         aliases: [alloy]

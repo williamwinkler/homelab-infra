@@ -1,0 +1,113 @@
+{
+  "uid": "tikkit-organizations",
+  "title": "Tikkit · Organization activity",
+  "description": "Operational organization activity from trusted RPC completion logs and sampled traces, not business audit totals or active humans. Organization filters apply throughout except the top-20 picker. Null attribution is excluded; investigate service-wide failures in RPC investigation.",
+  "schemaVersion": 41,
+  "version": 1,
+  "editable": false,
+  "tags": ["tikkit", "application"],
+  "timezone": "browser",
+  "refresh": "1m",
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "annotations": {"list": [{"name": "Tikkit deployments", "datasource": {"type": "grafana", "uid": "-- Grafana --"}, "enable": true, "hide": false, "iconColor": "rgba(0, 211, 255, 1)", "target": {"type": "tags", "tags": ["tikkit-deployment"], "matchAny": false, "limit": 100}}]},
+  "links": [
+    {"title": "API overview", "type": "link", "targetBlank": false, "url": "/d/tikkit-api?from=${__from}&to=${__to}&${environment:queryparam}"},
+    {"title": "RPC investigation", "type": "link", "targetBlank": false, "url": "/d/tikkit-rpc?from=${__from}&to=${__to}&${environment:queryparam}&${action:queryparam}"},
+    {"title": "Organization activity", "type": "link", "targetBlank": false, "url": "/d/tikkit-organizations?from=${__from}&to=${__to}&${environment:queryparam}&${action:queryparam}&${organization:queryparam}"},
+    {"title": "Runtime", "type": "link", "targetBlank": false, "url": "/d/tikkit-runtime?from=${__from}&to=${__to}&${environment:queryparam}"},
+    {"title": "All organizations", "type": "link", "targetBlank": false, "url": "/d/tikkit-organizations?from=${__from}&to=${__to}&${environment:queryparam}&${action:queryparam}&var-organization=.*"},
+    {"title": "Explore organization logs", "type": "link", "targetBlank": true, "url": "/explore?schemaVersion=1&panes=%7B%22A%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22$service%5C%22%2Cdeployment_environment%3D~%5C%22${environment:regex}%5C%22%7D%20%7C%3D%20%5C%22rpc_completed%5C%22%20%7C%20json%20event%3D%5C%22message.event%5C%22%2C%20organization_id%3D%5C%22message.organization_id%5C%22%2C%20action%3D%5C%22message.action%5C%22%2C%20operation%3D%5C%22message.operation%5C%22%2C%20success%3D%5C%22message.success%5C%22%2C%20error_type%3D%5C%22message.error_type%5C%22%2C%20duration_ms%3D%5C%22message.duration_ms%5C%22%20%7C%20__error__%3D%5C%22%5C%22%20%7C%20event%3D%5C%22rpc_completed%5C%22%20%7C%20organization_id!%3D%5C%22%5C%22%20%7C%20action%3D~%5C%22${action:regex}%5C%22%20%7C%20organization_id%3D~%5C%22${organization:raw}%5C%22%22%2C%22queryType%22%3A%22range%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22%7D%7D%7D"},
+    {"title": "Explore organization traces", "type": "link", "targetBlank": true, "url": "/explore?schemaVersion=1&panes=%7B%22A%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22$service%5C%22%20%26%26%20resource.deployment.environment%20%3D~%20%5C%22${environment:regex}%5C%22%20%26%26%20span.tikkit.rpc.action%20%3D~%20%5C%22${action:regex}%5C%22%20%26%26%20span.tikkit.organization.id%20%3D~%20%5C%22${organization:raw}%5C%22%20%7D%22%2C%22queryType%22%3A%22traceql%22%2C%22tableType%22%3A%22traces%22%2C%22limit%22%3A20%2C%22filters%22%3A%5B%5D%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22%7D%7D%7D"}
+  ],
+  "templating": {"list": [
+    {"name": "service", "label": "Service", "type": "constant", "hide": 2, "query": "tikkit-api", "current": {"text": "tikkit-api", "value": "tikkit-api"}},
+    {"name": "environment", "label": "Environment", "type": "query", "datasource": {"type": "prometheus", "uid": "prometheus"}, "definition": "label_values(tikkit_rpc_requests_total{service_name=\"$service\"},deployment_environment)", "query": {"query": "label_values(tikkit_rpc_requests_total{service_name=\"$service\"},deployment_environment)", "refId": "EnvironmentVariableQuery"}, "refresh": 2, "sort": 1, "multi": true, "includeAll": true, "allValue": ".*", "current": {"text": ["All"], "value": ["$__all"]}, "options": []},
+    {"name": "action", "label": "RPC action", "type": "query", "datasource": {"type": "prometheus", "uid": "prometheus"}, "definition": "label_values(tikkit_rpc_requests_total{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"},action)", "query": {"query": "label_values(tikkit_rpc_requests_total{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"},action)", "refId": "ActionVariableQuery"}, "refresh": 2, "sort": 1, "multi": true, "includeAll": true, "allValue": ".*", "current": {"text": ["All"], "value": ["$__all"]}, "options": []},
+    {"name": "organization", "label": "Organization ID (.* = all)", "type": "textbox", "description": "Trusted organization UUID or raw regex; filters this dashboard except the all-organization picker. IDs are unindexed JSON fields, so use the picker or paste an ID; a native Loki dropdown cannot enumerate them. No organization names lookup.", "query": ".*", "current": {"text": ".*", "value": ".*"}, "options": [{"text": ".*", "value": ".*", "selected": true}]}
+  ]},
+  "panels": [
+    {"id": 1, "type": "text", "title": "Reading organization activity", "gridPos": {"x": 0, "y": 0, "w": 24, "h": 6}, "options": {"mode": "markdown", "content": "**Scope:** Environment/action/time apply throughout; Organization ID (UUID or raw regex, `.*` = all) filters every data panel except the **top-20 picker**. Click an ID there to select it; All organizations resets it. IDs are parsed only from trusted `message.organization_id`, never headers or inherited metadata. They are not Prometheus or indexed Loki labels; a native Loki dropdown cannot enumerate them.\n\n**Meaning:** Counts are observed operational RPC completions (run + validate, all outcomes), not audited business totals or active humans; polling counts as activity. Successful mutations count only run + success=true + create_/update_/delete_/move_ prefixes. Null/unknown attribution is excluded; see **RPC investigation** for service-wide failures. Missing events are not zero health or latency. High cardinality/long ranges can exceed Loki series limits; narrow time/environment/action. Traces are sampled. Existing attributed telemetry needs no backfill or new API deployment.\n\n**Deployments:** Shared annotations tagged `tikkit-deployment` span environments; include environment and version in the annotation text. Create manually or via an external publisher; this dashboard adds no automation."}},
+    {
+      "id": 13, "type": "stat", "title": "Active organizations · selected range",
+      "description": "Distinct trusted organization IDs with observed RPC completion events in the full selected range, filtered by environment, action and Organization ID. Includes run and validate, success and failure. No completion events is not evidence of zero traffic or health; unknown/null attribution is excluded.",
+      "gridPos": {"x": 0, "y": 6, "w": 6, "h": 8},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [{"refId": "A", "expr": "count(sum by (organization_id) (count_over_time({service_name=\"$service\",deployment_environment=~\"${environment:regex}\"} |= \"rpc_completed\" | json event=\"message.event\", organization_id=\"message.organization_id\", action=\"message.action\", operation=\"message.operation\", success=\"message.success\", error_type=\"message.error_type\", duration_ms=\"message.duration_ms\" | __error__=\"\" | event=\"rpc_completed\" | organization_id!=\"\" | action=~\"${action:regex}\" | organization_id=~\"${organization:raw}\" | keep organization_id [$__range])))", "queryType": "instant", "editorMode": "code"}],
+      "fieldConfig": {"defaults": {"unit": "none", "decimals": 0, "min": 0, "noValue": "No completion events"}, "overrides": []},
+      "options": {"reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}, "orientation": "auto", "textMode": "auto", "colorMode": "none", "graphMode": "none", "justifyMode": "auto"}
+    },
+    {
+      "id": 14, "type": "table", "title": "Organization picker · top 20 by RPC completions · selected range",
+      "description": "Maximum 20 organizations ranked by integer observed completion count over the full selected range (run and validate, all outcomes). Click an Organization ID to filter this dashboard. This picker intentionally ignores Organization ID but retains environment/action/time. UUIDs come from trusted application context, not names or headers. Counts are log events, not extrapolated Prometheus estimates. Top 20 limits displayed rows, not intermediate series: high organization cardinality can still hit Loki max_query_series; narrow the range or environment/action filters.",
+      "gridPos": {"x": 6, "y": 6, "w": 18, "h": 8},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [{"refId": "A", "expr": "sort_desc(topk(20, sum by (organization_id) (count_over_time({service_name=\"$service\",deployment_environment=~\"${environment:regex}\"} |= \"rpc_completed\" | json event=\"message.event\", organization_id=\"message.organization_id\", action=\"message.action\", operation=\"message.operation\", success=\"message.success\", error_type=\"message.error_type\", duration_ms=\"message.duration_ms\" | __error__=\"\" | event=\"rpc_completed\" | organization_id!=\"\" | action=~\"${action:regex}\" | keep organization_id [$__range]))))", "queryType": "instant", "editorMode": "code", "legendFormat": "{{organization_id}}"}],
+      "transformations": [
+        {"id": "labelsToFields", "options": {"mode": "columns"}},
+        {"id": "merge", "options": {}},
+        {"id": "organize", "options": {"excludeByName": {"Time": true}, "indexByName": {"organization_id": 0, "Value": 1}, "renameByName": {"organization_id": "Organization ID", "Value": "RPC completions"}}},
+        {"id": "sortBy", "options": {"sort": [{"field": "RPC completions", "desc": true}, {"field": "Organization ID", "desc": false}]}}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "decimals": 0, "min": 0, "noValue": "No completion events"}, "overrides": [{"matcher": {"id": "byName", "options": "Organization ID"}, "properties": [
+        {"id": "links", "value": [{"title": "Select organization", "targetBlank": false, "url": "/d/tikkit-organizations?from=${__from}&to=${__to}&${environment:queryparam}&${action:queryparam}&var-organization=${__value.raw}"}]},
+        {"id": "custom.cellOptions", "value": {"type": "data-links"}}
+      ]}]},
+      "options": {"showHeader": true, "cellHeight": "sm", "sortBy": [{"displayName": "RPC completions", "desc": true}, {"displayName": "Organization ID", "desc": false}]}
+    },
+    {
+      "id": 15, "type": "timeseries", "title": "Observed successful mutation RPC completions · by action",
+      "description": "Observed successful RPC completions, NOT audited business totals. Only operation=run, success=true and create_/update_/delete_/move_ actions; validate is never counted. Counts per query interval (at least 1 minute), summed across selected organizations. Retries, no-op successes and partial workflows may differ from business activity. Environment/action/Organization ID filters apply; missing events are not fabricated as zero.",
+      "gridPos": {"x": 0, "y": 14, "w": 12, "h": 8},
+      "datasource": {"type": "loki", "uid": "loki"}, "interval": "1m",
+      "targets": [{"refId": "A", "expr": "sum by (action) (count_over_time({service_name=\"$service\",deployment_environment=~\"${environment:regex}\"} |= \"rpc_completed\" | json event=\"message.event\", organization_id=\"message.organization_id\", action=\"message.action\", operation=\"message.operation\", success=\"message.success\", error_type=\"message.error_type\", duration_ms=\"message.duration_ms\" | __error__=\"\" | event=\"rpc_completed\" | organization_id!=\"\" | action=~\"${action:regex}\" | organization_id=~\"${organization:raw}\" | operation=\"run\" | success=\"true\" | action=~\"create_.*|update_.*|delete_.*|move_.*\" | keep action [$__interval]))", "queryType": "range", "editorMode": "code", "legendFormat": "{{action}}"}],
+      "fieldConfig": {"defaults": {"unit": "none", "decimals": 0, "min": 0, "noValue": "No completion events", "custom": {"drawStyle": "line", "spanNulls": false}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "calcs": []}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "id": 16, "type": "table", "title": "RPC failures · organization / error type · selected range",
+      "description": "Integer observed failed completion counts over the full selected range for selected organizations/actions/environments. Includes run and validate failures and client/validation errors, not only internal faults. Grouping is organization ID and bounded error_type; click an ID to select it. Null/unknown organizations are excluded; absent rows are not zero health. Large cardinality can hit Loki max_query_series; narrow the range or filters.",
+      "gridPos": {"x": 12, "y": 14, "w": 12, "h": 8},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [{"refId": "A", "expr": "sort_desc(sum by (organization_id, error_type) (count_over_time({service_name=\"$service\",deployment_environment=~\"${environment:regex}\"} |= \"rpc_completed\" | json event=\"message.event\", organization_id=\"message.organization_id\", action=\"message.action\", operation=\"message.operation\", success=\"message.success\", error_type=\"message.error_type\", duration_ms=\"message.duration_ms\" | __error__=\"\" | event=\"rpc_completed\" | organization_id!=\"\" | action=~\"${action:regex}\" | organization_id=~\"${organization:raw}\" | success=\"false\" | keep organization_id, error_type [$__range])))", "queryType": "instant", "editorMode": "code", "legendFormat": "{{organization_id}} · {{error_type}}"}],
+      "transformations": [
+        {"id": "labelsToFields", "options": {"mode": "columns"}},
+        {"id": "merge", "options": {}},
+        {"id": "organize", "options": {"excludeByName": {"Time": true}, "indexByName": {"organization_id": 0, "error_type": 1, "Value": 2}, "renameByName": {"organization_id": "Organization ID", "error_type": "Error type", "Value": "Failed completions"}}},
+        {"id": "sortBy", "options": {"sort": [{"field": "Failed completions", "desc": true}, {"field": "Organization ID", "desc": false}, {"field": "Error type", "desc": false}]}}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "decimals": 0, "min": 0, "noValue": "No completion events"}, "overrides": [{"matcher": {"id": "byName", "options": "Organization ID"}, "properties": [
+        {"id": "links", "value": [{"title": "Select organization", "targetBlank": false, "url": "/d/tikkit-organizations?from=${__from}&to=${__to}&${environment:queryparam}&${action:queryparam}&var-organization=${__value.raw}"}]},
+        {"id": "custom.cellOptions", "value": {"type": "data-links"}}
+      ]}]},
+      "options": {"showHeader": true, "cellHeight": "sm", "sortBy": [{"displayName": "Failed completions", "desc": true}, {"displayName": "Organization ID", "desc": false}, {"displayName": "Error type", "desc": false}]}
+    },
+    {
+      "id": 17, "type": "timeseries", "title": "Selected-organization RPC p95 latency · ms",
+      "description": "p95 of numeric message.duration_ms from observed completions, per selected organization and query interval (at least 1 minute). Includes run/validate and all outcomes, filtered by environment/action. Non-numeric durations and parser failures are excluded. Sparse samples make tails noisy; no events means undefined latency, never synthetic zero. Only organization_id and the numeric duration survive before unwrap; trace/span IDs and structured metadata do not create per-request metric series.",
+      "gridPos": {"x": 0, "y": 22, "w": 24, "h": 8},
+      "datasource": {"type": "loki", "uid": "loki"}, "interval": "1m",
+      "targets": [{"refId": "A", "expr": "quantile_over_time(0.95, {service_name=\"$service\",deployment_environment=~\"${environment:regex}\"} |= \"rpc_completed\" | json event=\"message.event\", organization_id=\"message.organization_id\", action=\"message.action\", operation=\"message.operation\", success=\"message.success\", error_type=\"message.error_type\", duration_ms=\"message.duration_ms\" | __error__=\"\" | event=\"rpc_completed\" | organization_id!=\"\" | action=~\"${action:regex}\" | organization_id=~\"${organization:raw}\" | keep organization_id, duration_ms | unwrap duration_ms | __error__=\"\" [$__interval]) by (organization_id)", "queryType": "range", "editorMode": "code", "legendFormat": "{{organization_id}} p95"}],
+      "fieldConfig": {"defaults": {"unit": "ms", "min": 0, "noValue": "No completion events", "custom": {"drawStyle": "line", "spanNulls": false}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "calcs": []}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "id": 18, "type": "logs", "title": "Selected-organization RPC completion logs",
+      "description": "Newest 100 matching completion lines in the selected range. Explicitly parses message.organization_id from the JSON message object, never metadata.organization_id or request headers. Filters trusted non-null organization IDs, environment and action; includes run/validate and both outcomes. Trace/span IDs remain in the original log for native correlation, not metric labels. RPC investigation provides service-wide logs and failures, including unattributed events. Use Explore organization logs for further investigation.",
+      "gridPos": {"x": 0, "y": 30, "w": 24, "h": 10},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [{"refId": "A", "datasource": {"type": "loki", "uid": "loki"}, "expr": "{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"} |= \"rpc_completed\" | json event=\"message.event\", organization_id=\"message.organization_id\", action=\"message.action\", operation=\"message.operation\", success=\"message.success\", error_type=\"message.error_type\", duration_ms=\"message.duration_ms\" | __error__=\"\" | event=\"rpc_completed\" | organization_id!=\"\" | action=~\"${action:regex}\" | organization_id=~\"${organization:raw}\"", "queryType": "range", "editorMode": "code", "maxLines": 100}],
+      "fieldConfig": {"defaults": {"noValue": "No completion events"}, "overrides": []},
+      "options": {"showTime": true, "showLabels": false, "showCommonLabels": false, "wrapLogMessage": true, "prettifyLogMessage": false, "enableLogDetails": true, "dedupStrategy": "none", "sortOrder": "Descending"}
+    },
+    {
+      "id": 19, "type": "table", "title": "Selected-organization sampled RPC traces",
+      "description": "Native Tempo TraceQL table, up to 20 matching traces in the selected range. Matches trusted request-span tikkit.organization.id and the selected environment/action/Organization ID. Missing attribution and historical spans are intentionally excluded; sampling/retention can leave no traces even when completion logs exist. Trace IDs keep Tempo's built-in View trace links. RPC investigation provides service-wide sampled traces; Explore organization traces retains these filters and time range.",
+      "gridPos": {"x": 0, "y": 40, "w": 24, "h": 10},
+      "datasource": {"type": "tempo", "uid": "tempo"},
+      "targets": [{"refId": "A", "datasource": {"type": "tempo", "uid": "tempo"}, "queryType": "traceql", "query": "{ resource.service.name = \"$service\" && resource.deployment.environment =~ \"${environment:regex}\" && span.tikkit.rpc.action =~ \"${action:regex}\" && span.tikkit.organization.id =~ \"${organization:raw}\" }", "tableType": "traces", "limit": 20, "filters": []}],
+      "fieldConfig": {"defaults": {"noValue": "No attributed sampled traces"}, "overrides": []},
+      "options": {"showHeader": true, "cellHeight": "sm"}
+    }
+  ]
+}

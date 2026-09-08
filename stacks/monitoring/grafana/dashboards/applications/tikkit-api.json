@@ -1,7 +1,7 @@
 {
   "uid": "tikkit-api",
-  "title": "Tikkit API",
-  "description": "RPC traffic, outcomes and latency with repository and BEAM context, sampled traces and related service logs.",
+  "title": "Tikkit · Service health",
+  "description": "Container CPU and memory, service-wide RPC traffic, investigative failure percentage, latency and per-instance BEAM context. Pipeline sample age is not application availability. No formal SLO or alerts.",
   "schemaVersion": 41,
   "version": 1,
   "editable": false,
@@ -10,148 +10,138 @@
   "refresh": "1m",
   "time": {"from": "now-1h", "to": "now"},
   "timepicker": {},
-  "annotations": {"list": []},
+  "annotations": {"list": [
+    {"name": "Tikkit deployments · shared across environments", "datasource": {"type": "grafana", "uid": "-- Grafana --"}, "enable": true, "hide": false, "iconColor": "rgba(255, 192, 0, 1)", "target": {"type": "tags", "tags": ["tikkit-deployment"], "matchAny": false, "limit": 100}}
+  ]},
   "links": [
-    {
-      "title": "Explore logs",
-      "type": "link",
-      "targetBlank": true,
-      "url": "/explore?schemaVersion=1&panes=%7B%22A%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22$service%5C%22%2Cdeployment_environment%3D~%5C%22${environment:regex}%5C%22%7D%22%2C%22queryType%22%3A%22range%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22%7D%7D%7D"
-    },
-    {
-      "title": "Explore RPC traces",
-      "type": "link",
-      "targetBlank": true,
-      "url": "/explore?schemaVersion=1&panes=%7B%22A%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22$service%5C%22%20%26%26%20resource.deployment.environment%20%3D~%20%5C%22${environment:regex}%5C%22%20%26%26%20span.tikkit.rpc.action%20%3D~%20%5C%22${action:regex}%5C%22%20%7D%22%2C%22queryType%22%3A%22traceql%22%2C%22tableType%22%3A%22traces%22%2C%22limit%22%3A20%2C%22filters%22%3A%5B%5D%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22%7D%7D%7D"
-    }
+    {"title": "Service health", "type": "link", "targetBlank": false, "url": "/d/tikkit-api?from=${__from}&to=${__to}&${environment:queryparam}"},
+    {"title": "RPC", "type": "link", "targetBlank": false, "url": "/d/tikkit-rpc?from=${__from}&to=${__to}&${environment:queryparam}"},
+    {"title": "Organizations", "type": "link", "targetBlank": false, "url": "/d/tikkit-organizations?from=${__from}&to=${__to}&${environment:queryparam}"},
+    {"title": "Runtime", "type": "link", "targetBlank": false, "url": "/d/tikkit-runtime?from=${__from}&to=${__to}&${environment:queryparam}"},
+    {"title": "Explore logs", "type": "link", "targetBlank": true, "url": "/explore?schemaVersion=1&panes=%7B%22A%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22$service%5C%22%2Cdeployment_environment%3D~%5C%22${environment:regex}%5C%22%7D%22%2C%22queryType%22%3A%22range%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22%7D%7D%7D"}
   ],
-  "templating": {
-    "list": [
-      {"name": "service", "label": "Service", "type": "constant", "hide": 2, "query": "tikkit-api", "current": {"text": "tikkit-api", "value": "tikkit-api"}},
-      {
-        "name": "environment", "label": "Environment", "type": "query",
-        "datasource": {"type": "prometheus", "uid": "prometheus"},
-        "definition": "label_values(tikkit_rpc_requests_total{service_name=\"$service\"},deployment_environment)",
-        "query": {"query": "label_values(tikkit_rpc_requests_total{service_name=\"$service\"},deployment_environment)", "refId": "EnvironmentVariableQuery"},
-        "refresh": 2, "sort": 1, "multi": true, "includeAll": true, "allValue": ".*",
-        "current": {"text": ["All"], "value": ["$__all"]}, "options": []
-      },
-      {
-        "name": "action", "label": "RPC action", "type": "query",
-        "datasource": {"type": "prometheus", "uid": "prometheus"},
-        "definition": "label_values(tikkit_rpc_requests_total{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"},action)",
-        "query": {"query": "label_values(tikkit_rpc_requests_total{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"},action)", "refId": "ActionVariableQuery"},
-        "refresh": 2, "sort": 1, "multi": true, "includeAll": true, "allValue": ".*",
-        "current": {"text": ["All"], "value": ["$__all"]}, "options": []
-      }
-    ]
-  },
+  "templating": {"list": [
+    {"name": "service", "label": "Service", "type": "constant", "hide": 2, "query": "tikkit-api", "current": {"text": "tikkit-api", "value": "tikkit-api"}},
+    {
+      "name": "environment", "label": "Environment", "type": "query",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "definition": "label_values(tikkit_rpc_requests_total{service_name=\"$service\"},deployment_environment)",
+      "query": {"query": "label_values(tikkit_rpc_requests_total{service_name=\"$service\"},deployment_environment)", "refId": "EnvironmentVariableQuery"},
+      "refresh": 2, "sort": 1, "multi": true, "includeAll": true, "allValue": ".*",
+      "current": {"text": ["All"], "value": ["$__all"]}, "options": []
+    }
+  ]},
   "panels": [
     {
-      "id": 1, "type": "text", "title": "Reading this dashboard",
-      "gridPos": {"x": 0, "y": 0, "w": 24, "h": 4},
-      "options": {"mode": "markdown", "content": "**Scope:** RPC action filters apply to RPC metrics and traces only; DB, BEAM and logs stay service/environment-wide. Environment comes from telemetry resource identity, not the Docker context or Mix build.\n\n**Low traffic:** No traffic ≠ zero latency; missing/undefined quantiles are not filled with zero. Rates use Grafana's scrape-aware interval; range counts are extrapolated estimates. Failure outcomes include client/validation errors, not just internal faults.\n\n**Correlation:** Exemplars and traces are sampled, so not every request has a trace. Trace IDs in the table open Tempo. Logs are related service logs, not an exact RPC-action match. Explore links retain the dashboard time range. **Skip alerts until an owner/contact and actionable thresholds are agreed.**"}
+      "id": 1, "type": "text", "title": "Scope, interpretation and instrumentation gaps",
+      "gridPos": {"x": 0, "y": 0, "w": 24, "h": 11},
+      "options": {"mode": "markdown", "content": "**Scope:** All RPC actions, operations (run and validate), outcomes and instances in selected environments. RPC/BEAM environment is telemetry resource identity. RPC/DB distributions combine selected environments; BEAM gauges remain per environment and instance.\n\n**Container attribution (Dokploy / Linux Swarm):** Set Docker labels `service.name` and `deployment.environment.name` for service/environment attribution. Service falls back to Swarm service, then container name; environment has no fallback. `OTEL_RESOURCE_ATTRIBUTES` does not automatically label Docker containers. Unlabelled-environment containers are visible only with Environment **All**, and still must match the selected service. The current local API container has no attribution labels or limits.\n\n**Container interpretation:** CPU cores are used cores; CPU percentage is usage relative to configured **CFS quota**, not CPU shares or cpuset-only capacity. Memory is container **working set**, separate from BEAM allocated memory below, not identical to RSS. Unlimited, missing or unknown limits produce **no percentage**, never a fabricated zero. Container series retain container identity across replacement.\n\n**Interpretation:** Internal/unclassified failure percentage is an investigative proxy, NOT a formal SLO. Expected validation and rate-limiting errors are excluded from its numerator. No data is unknown, never green; no traffic means undefined failure percentage and latency, not zero. Sparse histogram tails are noisy. Exemplars/traces are sampled; Explore logs are related service logs.\n\n**PIPELINE sample age:** Prometheus sample age, not an application heartbeat or availability check; collectors may re-emit cached data. Missing instances can disappear after staleness, not recover.\n\n**Deployments:** Tag annotations `tikkit-deployment`; they are shared across environments. Include environment and version in annotation text. No automated deploy integration yet.\n\n**Gaps requiring instrumentation:** External availability probe; formal SLO/burn budget; container restarts/OOM events; PostgreSQL internals. No alerts configured."}
     },
     {
-      "id": 2, "type": "timeseries", "title": "RPC requests / second by action",
-      "description": "Request rate across operations, outcomes and instances for selected actions. An absent series can mean missing telemetry, not zero traffic.",
-      "gridPos": {"x": 0, "y": 4, "w": 12, "h": 8},
+      "id": 9, "type": "timeseries", "title": "Container CPU used · cores",
+      "description": "Used CPU cores per container. Rate is applied to each total CPU counter before aggregation; max avoids adding duplicate collector series. One core means one CPU-second per second. Missing telemetry is unknown.",
+      "gridPos": {"x": 0, "y": 11, "w": 12, "h": 8},
       "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "sum by (action) (rate(tikkit_rpc_requests_total{service_name=\"$service\",deployment_environment=~\"${environment:regex}\",action=~\"${action:regex}\"}[$__rate_interval]))", "legendFormat": "{{action}}", "range": true, "exemplar": true}],
-      "fieldConfig": {"defaults": {"unit": "reqps", "min": 0, "custom": {"drawStyle": "line", "fillOpacity": 10, "spanNulls": false}, "links": [{"title": "Explore logs", "targetBlank": true, "url": "/explore?schemaVersion=1&panes=%7B%22A%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22$service%5C%22%2Cdeployment_environment%3D~%5C%22${environment:regex}%5C%22%7D%22%2C%22queryType%22%3A%22range%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22%7D%7D%7D"}]}, "overrides": []},
+      "targets": [{"refId": "A", "expr": "max by (container, container_id) (rate(container_cpu_usage_seconds_total{service_name=\"$service\",deployment_environment=~\"${environment:regex}\",cpu=\"total\"}[$__rate_interval]))", "legendFormat": "{{container}}", "range": true}],
+      "fieldConfig": {"defaults": {"unit": "suffix: cores", "min": 0, "noValue": "No data · unknown", "custom": {"drawStyle": "line", "fillOpacity": 10, "spanNulls": false}}, "overrides": []},
       "options": {"legend": {"displayMode": "list", "placement": "bottom", "calcs": []}, "tooltip": {"mode": "multi", "sort": "desc"}}
     },
     {
-      "id": 3, "type": "timeseries", "title": "RPC failure outcomes / second",
-      "description": "success=\"false\" grouped by error_type. Includes client/validation failures; this is not an internal-server-error rate. Inspect error types and logs before interpreting reliability. Missing series are not filled with zero.",
-      "gridPos": {"x": 12, "y": 4, "w": 12, "h": 8},
+      "id": 10, "type": "timeseries", "title": "Container CPU · % of CFS quota",
+      "description": "Used cores divided by configured CFS quota cores (positive quota / positive period), multiplied by 100. Matching container/container_id aggregation removes the cpu label mismatch. Missing or unlimited quotas have no percentage; CPU shares and cpuset-only capacity are not quota. Values are not clamped at 100%.",
+      "gridPos": {"x": 12, "y": 11, "w": 12, "h": 8},
       "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "sum by (error_type) (rate(tikkit_rpc_requests_total{service_name=\"$service\",deployment_environment=~\"${environment:regex}\",action=~\"${action:regex}\",success=\"false\"}[$__rate_interval]))", "legendFormat": "{{error_type}}", "range": true, "exemplar": true}],
-      "fieldConfig": {"defaults": {"unit": "reqps", "min": 0, "custom": {"drawStyle": "line", "spanNulls": false}, "links": [{"title": "Explore logs", "targetBlank": true, "url": "/explore?schemaVersion=1&panes=%7B%22A%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22$service%5C%22%2Cdeployment_environment%3D~%5C%22${environment:regex}%5C%22%7D%22%2C%22queryType%22%3A%22range%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22%7D%7D%7D"}]}, "overrides": []},
+      "targets": [{"refId": "A", "expr": "100 * max by (container, container_id) (rate(container_cpu_usage_seconds_total{service_name=\"$service\",deployment_environment=~\"${environment:regex}\",cpu=\"total\"}[$__rate_interval])) / ((max by (container, container_id) (container_spec_cpu_quota{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"}) > 0) / (max by (container, container_id) (container_spec_cpu_period{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"}) > 0))", "legendFormat": "{{container}}", "range": true}],
+      "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "noValue": "Undefined · no quota or data", "custom": {"drawStyle": "line", "spanNulls": false}}, "overrides": []},
       "options": {"legend": {"displayMode": "list", "placement": "bottom", "calcs": []}, "tooltip": {"mode": "multi", "sort": "desc"}}
     },
     {
-      "id": 4, "type": "timeseries", "title": "RPC latency · p50 / p95 / p99",
-      "description": "Milliseconds across selected actions and all outcomes/instances. Bucket rates are summed by le before quantiles. No observations produce undefined latency, not zero; sparse samples make tail estimates noisy.",
-      "gridPos": {"x": 0, "y": 12, "w": 12, "h": 8},
+      "id": 11, "type": "timeseries", "title": "Container memory working set · bytes",
+      "description": "Container cgroup working set in bytes, not BEAM allocated memory or identical to RSS. Includes memory beyond the BEAM allocator. Max preserves each container gauge without adding duplicate collector series. Missing telemetry is unknown, not zero.",
+      "gridPos": {"x": 0, "y": 19, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "expr": "max by (container, container_id) (container_memory_working_set_bytes{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"})", "legendFormat": "{{container}}", "range": true}],
+      "fieldConfig": {"defaults": {"unit": "bytes", "min": 0, "noValue": "No data · unknown", "custom": {"drawStyle": "line", "fillOpacity": 10, "spanNulls": false}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "calcs": []}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "id": 12, "type": "timeseries", "title": "Container working set · % of memory limit",
+      "description": "Working set divided by a positive configured container memory limit, multiplied by 100. Zero (unlimited), missing or unknown limits produce no percentage. This is not BEAM allocator utilization. Values are not clamped at 100%.",
+      "gridPos": {"x": 12, "y": 19, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "expr": "100 * max by (container, container_id) (container_memory_working_set_bytes{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"}) / (max by (container, container_id) (container_spec_memory_limit_bytes{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"}) > 0)", "legendFormat": "{{container}}", "range": true}],
+      "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "noValue": "Undefined · no limit or data", "custom": {"drawStyle": "line", "spanNulls": false}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "calcs": []}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "id": 2, "type": "timeseries", "title": "Total RPC throughput · all actions / operations / outcomes",
+      "description": "Total requests per second across selected environments and all instances. Includes run, validate, successes and failures. Missing telemetry is not synthesized as zero.",
+      "gridPos": {"x": 0, "y": 27, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "expr": "sum(rate(tikkit_rpc_requests_total{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"}[$__rate_interval]))", "legendFormat": "All RPCs", "range": true, "exemplar": true}],
+      "fieldConfig": {"defaults": {"unit": "reqps", "min": 0, "noValue": "No data · unknown", "custom": {"drawStyle": "line", "fillOpacity": 10, "spanNulls": false}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "calcs": []}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "id": 3, "type": "timeseries", "title": "Internal / unclassified RPC failures · %",
+      "description": "Investigative proxy, NOT a formal SLO. Numerator: success=false with internal_error, unknown_error or error. Expected validation/rate limiting excluded. Denominator: all RPCs. Zero requires an observed positive denominator; no traffic or absent denominator leaves the percentage undefined.",
+      "gridPos": {"x": 12, "y": 27, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "expr": "100 * ((sum(rate(tikkit_rpc_requests_total{service_name=\"$service\",deployment_environment=~\"${environment:regex}\",success=\"false\",error_type=~\"internal_error|unknown_error|error\"}[$__rate_interval])) or (0 * sum(rate(tikkit_rpc_requests_total{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"}[$__rate_interval])))) / (sum(rate(tikkit_rpc_requests_total{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"}[$__rate_interval])) > 0))", "legendFormat": "Internal / unclassified failures", "range": true}],
+      "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100, "noValue": "Undefined · no traffic or data", "custom": {"drawStyle": "line", "spanNulls": false}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "calcs": []}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "id": 4, "type": "timeseries", "title": "Overall RPC latency · p50 / p95 / p99",
+      "description": "Milliseconds across all actions, operations, outcomes and instances in selected environments. Bucket rates summed by le before quantiles. No observations means undefined latency, not zero; sparse tail estimates are noisy.",
+      "gridPos": {"x": 0, "y": 35, "w": 12, "h": 8},
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [
-        {"refId": "A", "expr": "histogram_quantile(0.50, sum by (le) (rate(tikkit_rpc_duration_milliseconds_bucket{service_name=\"$service\",deployment_environment=~\"${environment:regex}\",action=~\"${action:regex}\"}[$__rate_interval])))", "legendFormat": "p50", "range": true, "exemplar": true},
-        {"refId": "B", "expr": "histogram_quantile(0.95, sum by (le) (rate(tikkit_rpc_duration_milliseconds_bucket{service_name=\"$service\",deployment_environment=~\"${environment:regex}\",action=~\"${action:regex}\"}[$__rate_interval])))", "legendFormat": "p95", "range": true, "exemplar": true},
-        {"refId": "C", "expr": "histogram_quantile(0.99, sum by (le) (rate(tikkit_rpc_duration_milliseconds_bucket{service_name=\"$service\",deployment_environment=~\"${environment:regex}\",action=~\"${action:regex}\"}[$__rate_interval])))", "legendFormat": "p99", "range": true, "exemplar": true}
+        {"refId": "A", "expr": "histogram_quantile(0.50, sum by (le) (rate(tikkit_rpc_duration_milliseconds_bucket{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"}[$__rate_interval])))", "legendFormat": "p50", "range": true, "exemplar": true},
+        {"refId": "B", "expr": "histogram_quantile(0.95, sum by (le) (rate(tikkit_rpc_duration_milliseconds_bucket{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"}[$__rate_interval])))", "legendFormat": "p95", "range": true, "exemplar": true},
+        {"refId": "C", "expr": "histogram_quantile(0.99, sum by (le) (rate(tikkit_rpc_duration_milliseconds_bucket{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"}[$__rate_interval])))", "legendFormat": "p99", "range": true, "exemplar": true}
       ],
-      "fieldConfig": {"defaults": {"unit": "ms", "min": 0, "custom": {"drawStyle": "line", "spanNulls": false}, "links": [{"title": "Explore logs", "targetBlank": true, "url": "/explore?schemaVersion=1&panes=%7B%22A%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22$service%5C%22%2Cdeployment_environment%3D~%5C%22${environment:regex}%5C%22%7D%22%2C%22queryType%22%3A%22range%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22%7D%7D%7D"}]}, "overrides": []},
+      "fieldConfig": {"defaults": {"unit": "ms", "min": 0, "noValue": "Undefined · no observations", "custom": {"drawStyle": "line", "spanNulls": false}}, "overrides": []},
       "options": {"legend": {"displayMode": "list", "placement": "bottom", "calcs": []}, "tooltip": {"mode": "multi", "sort": "desc"}}
     },
     {
-      "id": 5, "type": "table", "title": "RPC requests in selected range · action / outcome",
-      "description": "Estimated increase over the full dashboard range, grouped by action and success (true/false). Prometheus extrapolation can yield fractional counts. No synthetic zero rows are added for unobserved outcomes.",
-      "gridPos": {"x": 12, "y": 12, "w": 12, "h": 8},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "sum by (action, success) (increase(tikkit_rpc_requests_total{service_name=\"$service\",deployment_environment=~\"${environment:regex}\",action=~\"${action:regex}\"}[$__range]))", "format": "table", "instant": true, "range": false}],
-      "transformations": [{"id": "organize", "options": {"excludeByName": {"Time": true}, "indexByName": {"action": 0, "success": 1, "Value": 2}, "renameByName": {"action": "Action", "success": "Success", "Value": "Requests (estimated)"}}}],
-      "fieldConfig": {"defaults": {"unit": "short", "decimals": 1, "links": [{"title": "Explore logs", "targetBlank": true, "url": "/explore?schemaVersion=1&panes=%7B%22A%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22$service%5C%22%2Cdeployment_environment%3D~%5C%22${environment:regex}%5C%22%7D%22%2C%22queryType%22%3A%22range%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22%7D%7D%7D"}]}, "overrides": []},
-      "options": {"showHeader": true, "cellHeight": "sm", "sortBy": [{"displayName": "Requests (estimated)", "desc": true}]}
-    },
-    {
-      "id": 6, "type": "timeseries", "title": "DB p95 · query / queue time",
-      "description": "Service/environment-wide repository histogram quantiles in milliseconds, not filtered by RPC action. Query and queue p95 are independent distributions; do not add them. No queries means undefined latency, not zero.",
-      "gridPos": {"x": 0, "y": 20, "w": 12, "h": 8},
+      "id": 5, "type": "timeseries", "title": "DB p95 · query / queue time",
+      "description": "Service/environment-wide repository histogram quantiles in milliseconds. Query and queue p95 are independent distributions; do not add them. No queries means undefined latency, not zero. This is application repository timing, not PostgreSQL internals.",
+      "gridPos": {"x": 12, "y": 35, "w": 12, "h": 8},
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [
         {"refId": "A", "expr": "histogram_quantile(0.95, sum by (le) (rate(tikkit_repo_query_query_time_milliseconds_bucket{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"}[$__rate_interval])))", "legendFormat": "Query p95", "range": true, "exemplar": true},
         {"refId": "B", "expr": "histogram_quantile(0.95, sum by (le) (rate(tikkit_repo_query_queue_time_milliseconds_bucket{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"}[$__rate_interval])))", "legendFormat": "Queue p95", "range": true, "exemplar": true}
       ],
-      "fieldConfig": {"defaults": {"unit": "ms", "min": 0, "custom": {"drawStyle": "line", "spanNulls": false}, "links": [{"title": "Explore logs", "targetBlank": true, "url": "/explore?schemaVersion=1&panes=%7B%22A%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22$service%5C%22%2Cdeployment_environment%3D~%5C%22${environment:regex}%5C%22%7D%22%2C%22queryType%22%3A%22range%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22%7D%7D%7D"}]}, "overrides": []},
+      "fieldConfig": {"defaults": {"unit": "ms", "min": 0, "noValue": "Undefined · no observations", "custom": {"drawStyle": "line", "spanNulls": false}}, "overrides": []},
       "options": {"legend": {"displayMode": "list", "placement": "bottom", "calcs": []}, "tooltip": {"mode": "multi", "sort": "desc"}}
     },
     {
-      "id": 7, "type": "timeseries", "title": "BEAM memory · total bytes",
-      "description": "BEAM allocated memory summed across service instances in selected environments. Not container RSS and not filtered by RPC action.",
-      "gridPos": {"x": 12, "y": 20, "w": 12, "h": 8},
+      "id": 6, "type": "timeseries", "title": "BEAM total run queues · per instance",
+      "description": "Total run queue length by environment and service instance. _ratio is an upstream naming artifact: values are counts, not percentages. Max preserves each instance gauge without adding duplicate collector series. No stacking or synthetic zeros.",
+      "gridPos": {"x": 0, "y": 43, "w": 12, "h": 8},
       "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "sum(vm_memory_total_bytes{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"})", "legendFormat": "BEAM memory (all instances)", "range": true}],
-      "fieldConfig": {"defaults": {"unit": "bytes", "min": 0, "custom": {"drawStyle": "line", "fillOpacity": 10, "spanNulls": false}, "links": [{"title": "Explore logs", "targetBlank": true, "url": "/explore?schemaVersion=1&panes=%7B%22A%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22$service%5C%22%2Cdeployment_environment%3D~%5C%22${environment:regex}%5C%22%7D%22%2C%22queryType%22%3A%22range%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22%7D%7D%7D"}]}, "overrides": []},
-      "options": {"legend": {"displayMode": "list", "placement": "bottom", "calcs": []}, "tooltip": {"mode": "single", "sort": "none"}}
-    },
-    {
-      "id": 8, "type": "timeseries", "title": "BEAM processes · count",
-      "description": "Process count summed across service instances in selected environments. The upstream metric's _ratio suffix is a translation artifact: values are counts, not percentages. RPC action does not filter this panel.",
-      "gridPos": {"x": 0, "y": 28, "w": 12, "h": 8},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "sum(vm_system_counts_process_count_ratio{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"})", "legendFormat": "Processes (all instances)", "range": true}],
-      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "min": 0, "custom": {"drawStyle": "line", "spanNulls": false}, "links": [{"title": "Explore logs", "targetBlank": true, "url": "/explore?schemaVersion=1&panes=%7B%22A%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22$service%5C%22%2Cdeployment_environment%3D~%5C%22${environment:regex}%5C%22%7D%22%2C%22queryType%22%3A%22range%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22%7D%7D%7D"}]}, "overrides": []},
-      "options": {"legend": {"displayMode": "list", "placement": "bottom", "calcs": []}, "tooltip": {"mode": "single", "sort": "none"}}
-    },
-    {
-      "id": 9, "type": "timeseries", "title": "BEAM run queues · counts",
-      "description": "CPU, I/O and total run queue lengths summed across service instances in selected environments. _ratio is an upstream naming artifact; values are counts. Total includes components, so series are not stacked. Not filtered by RPC action.",
-      "gridPos": {"x": 12, "y": 28, "w": 12, "h": 8},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [
-        {"refId": "A", "expr": "sum(vm_total_run_queue_lengths_cpu_ratio{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"})", "legendFormat": "CPU", "range": true},
-        {"refId": "B", "expr": "sum(vm_total_run_queue_lengths_io_ratio{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"})", "legendFormat": "I/O", "range": true},
-        {"refId": "C", "expr": "sum(vm_total_run_queue_lengths_total_ratio{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"})", "legendFormat": "Total", "range": true}
-      ],
-      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "min": 0, "custom": {"drawStyle": "line", "spanNulls": false}, "links": [{"title": "Explore logs", "targetBlank": true, "url": "/explore?schemaVersion=1&panes=%7B%22A%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22$service%5C%22%2Cdeployment_environment%3D~%5C%22${environment:regex}%5C%22%7D%22%2C%22queryType%22%3A%22range%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22%7D%7D%7D"}]}, "overrides": []},
+      "targets": [{"refId": "A", "expr": "max by (deployment_environment, service_instance_id) (vm_total_run_queue_lengths_total_ratio{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"})", "legendFormat": "{{deployment_environment}} · {{service_instance_id}}", "range": true}],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "min": 0, "noValue": "No data · unknown", "custom": {"drawStyle": "line", "spanNulls": false}}, "overrides": []},
       "options": {"legend": {"displayMode": "list", "placement": "bottom", "calcs": []}, "tooltip": {"mode": "multi", "sort": "desc"}}
     },
     {
-      "id": 10, "type": "table", "title": "Sampled RPC traces",
-      "description": "Native Tempo TraceQL search, up to 20 matching traces in the dashboard time range. Trace ID fields carry Tempo's built-in View trace links. Sampling/retention can leave this table empty even when RPC metrics show traffic.",
-      "gridPos": {"x": 0, "y": 36, "w": 24, "h": 10},
-      "datasource": {"type": "tempo", "uid": "tempo"},
-      "targets": [{"refId": "A", "datasource": {"type": "tempo", "uid": "tempo"}, "queryType": "traceql", "query": "{ resource.service.name = \"$service\" && resource.deployment.environment =~ \"${environment:regex}\" && span.tikkit.rpc.action =~ \"${action:regex}\" }", "tableType": "traces", "limit": 20, "filters": []}],
-      "fieldConfig": {"defaults": {}, "overrides": []},
-      "options": {"showHeader": true, "cellHeight": "sm"}
+      "id": 7, "type": "timeseries", "title": "BEAM allocated memory · per instance",
+      "description": "BEAM allocated memory in bytes by environment and service instance, NOT container RSS. Max avoids adding duplicate collector series. Missing telemetry is unknown, not zero memory.",
+      "gridPos": {"x": 12, "y": 43, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "expr": "max by (deployment_environment, service_instance_id) (vm_memory_total_bytes{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"})", "legendFormat": "{{deployment_environment}} · {{service_instance_id}}", "range": true}],
+      "fieldConfig": {"defaults": {"unit": "bytes", "min": 0, "noValue": "No data · unknown", "custom": {"drawStyle": "line", "fillOpacity": 10, "spanNulls": false}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "calcs": []}, "tooltip": {"mode": "multi", "sort": "desc"}}
     },
     {
-      "id": 11, "type": "logs", "title": "Related service logs",
-      "description": "Service/environment logs in the selected time range, newest first. Logs lack RPC action labels: the action selector intentionally does not filter this panel. Use trace correlation where available; these are not guaranteed to belong to the selected RPC action.",
-      "gridPos": {"x": 0, "y": 46, "w": 24, "h": 10},
-      "datasource": {"type": "loki", "uid": "loki"},
-      "targets": [{"refId": "A", "datasource": {"type": "loki", "uid": "loki"}, "expr": "{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"}", "queryType": "range", "editorMode": "code", "maxLines": 100}],
-      "options": {"showTime": true, "showLabels": false, "showCommonLabels": false, "wrapLogMessage": true, "prettifyLogMessage": false, "enableLogDetails": true, "dedupStrategy": "none", "sortOrder": "Descending"}
+      "id": 8, "type": "timeseries", "title": "PIPELINE sample age · seconds per instance",
+      "description": "time() minus the Prometheus timestamp of vm_memory_total_bytes, grouped by environment and service instance (oldest age if duplicated). This is pipeline sample age, NOT an application heartbeat: collectors may re-emit cached data. After staleness an instance may disappear; no data is unknown, never healthy.",
+      "gridPos": {"x": 0, "y": 51, "w": 24, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "expr": "max by (deployment_environment, service_instance_id) (time() - timestamp(vm_memory_total_bytes{service_name=\"$service\",deployment_environment=~\"${environment:regex}\"}))", "legendFormat": "{{deployment_environment}} · {{service_instance_id}}", "range": true}],
+      "fieldConfig": {"defaults": {"unit": "s", "min": 0, "noValue": "No sample · unknown", "custom": {"drawStyle": "line", "spanNulls": false}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "calcs": []}, "tooltip": {"mode": "multi", "sort": "desc"}}
     }
   ]
 }

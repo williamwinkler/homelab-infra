@@ -107,17 +107,113 @@ copying live Prometheus, Loki, or Tempo data.
 
 Datasources and dashboards are read-only provisioning bind mounts from this
 repository, outside Grafana's persistent data volume. The existing overview
-lives in **Platform**. Application dashboards use the separate **Applications**
-folder and `/etc/grafana/dashboards/applications` provider path. Mount individual
+lives in **Platform**. The four Tikkit dashboards live in **TIKKIT** (folder UID
+`tikkit`), with provider path `/etc/grafana/dashboards/tikkit`. Mount individual
 JSON files, not the data volume or a directory that hides existing provisioning.
+Other applications should have their own provider/folder rather than share
+Tikkit's folder. The shared collectors and data sources remain application-agnostic.
 
-The shared stack and data sources remain application-agnostic. Project-specific
-metrics and queries belong in application dashboards, not collector filters or
-shared trace-to-metrics links. **Applications → Tikkit API** is the first such
-dashboard (`/d/tikkit-api`): RPC outcomes/latency, database timing, BEAM health,
-related logs and RPC traces. Its environment/action filters and Explore links
-preserve investigation context. Database/VM/log panels are service-scoped, not
-RPC-action-scoped; an aggregate graph cannot identify every individual request.
+| Dashboard | Question | Scope |
+| --- | --- | --- |
+| **Service health** (`/d/tikkit-api`) | Is there a likely user-impacting problem? | Environment; overall RPC traffic, internal/unclassified failures, latency, DB/BEAM context, container CPU/memory and pipeline sample age. |
+| **RPC investigation** (`/d/tikkit-rpc`) | Which operation is failing or slow? | Environment/action/operation/outcome; error breakdown, slowest actions, traces and completion logs. DB context stays service-wide. |
+| **Organization activity** (`/d/tikkit-organizations`) | Which organizations are active or affected? | Environment/action/organization; unassigned failures remain in RPC investigation. |
+| **Database & runtime** (`/d/tikkit-runtime`) | Where is the bottleneck? | Environment plus separate BEAM-instance/container selectors; Ecto/BEAM and container CPU, CFS throttling, memory and limits. Service logs are not instance-filtered. |
+
+The original `/d/tikkit-api` entry point remains service health. Navigation
+preserves time and compatible selectors; organization/instance filters are not
+silently applied to dashboards that lack them. Sample age is a pipeline signal,
+not an application heartbeat: a collector can re-emit cached data. Missing metrics
+and zero traffic are not healthy latency or availability. The internal/unclassified
+failure proxy (`internal_error|unknown_error|error`) needs investigation and is
+not a formal SLO. Expected validation and rate-limit outcomes remain inspectable.
+
+External API probes, formal SLOs/burn budgets, restart/OOM events and
+PostgreSQL internals need additional instrumentation/configuration. Realtime and
+browser experience dashboards are deferred until those signals exist; no empty
+placeholder dashboards or fabricated metrics are provisioned.
+
+Tikkit's **Organization activity** dashboard uses one `message.event=rpc_completed`
+JSON log per response, with a membership-verified `message.organization_id`.
+It shows active organizations, a clickable top-20 picker, successful mutation
+completions (excluding validation-only calls), failures, p95 latency, logs and
+attributed traces. The Organization ID textbox (`.*` = all) filters only that
+dashboard, except its picker; the reset/Explore links retain time/environment/action.
+Loki dropdown variables cannot enumerate these unindexed JSON fields. Do **not**
+solve that by indexing organization IDs or adding tenant dimensions to Prometheus.
+Queries use `keep` before log-metric aggregation to discard per-request metadata;
+large tenant counts can still require narrower query ranges. No shared collector
+or data-source customization is required. New API code/traffic is needed; history
+is not backfilled. These internal/admin counts describe observed RPC activity,
+not audited business totals, unique people, or tenant-isolated customer analytics.
+
+### Container CPU and memory (Dokploy / Linux Swarm)
+
+Alloy's **embedded cAdvisor** collects CPU and cgroup memory every 15 seconds
+through an internal scrape target and the existing remote-write path. No extra
+service, published exporter port, application scrape endpoint, or API rebuild
+is needed. Only CPU/memory collectors and a small metric/label allowlist are
+enabled; arbitrary Docker labels and container environment variables are not
+exported. Collection covers the Docker daemon on Alloy's node, not remote Swarm
+workers. This stack targets one permanent manager; a multi-node deployment needs
+one deliberately designed node collector per host, not extra replicas on one node.
+
+The committed mounts are Linux/Dokploy paths: read-only `/sys` and
+`/var/lib/docker`, alongside the existing Docker socket. cAdvisor needs Docker
+layer metadata even without filesystem metrics; adapt the data-directory mount
+if the daemon uses a non-default Docker root. No privileged mode, host PID
+namespace, host rootfs mount, or containerd socket is added. Read-only host mounts
+still grant sensitive host visibility; a read-only Docker socket is **not** an
+API authorization boundary. `ALLOY_NODE_NAME={{.Node.Hostname}}` uses native Swarm
+templating to keep the collector's `instance` label stable across task restarts.
+Keep Docker Desktop socket/bind-path overrides local, not in the production stack.
+
+Container attribution uses an explicit `service.name` Docker label, then the
+Swarm service name, then the container name. Environment comes only from
+`deployment.environment` (preferred if present) or `deployment.environment.name`.
+These are **task-container labels**, not merely Swarm service metadata, and are
+independent of application `OTEL_RESOURCE_ATTRIBUTES`. In an application's
+Dokploy-managed Compose/Stack definition, for example:
+
+```yaml
+services:
+  api:
+    labels:  # NOT just deploy.labels
+      service.name: tikkit-api
+      deployment.environment.name: production
+```
+
+For a Dokploy Application, use its equivalent task/container-label settings and
+verify the resulting container labels after deployment. Match the application's
+actual OTel service/environment identity. Do not add application mappings to the
+shared collector. Unlabelled environments appear only with **Environment = All**;
+a selected named environment never silently includes unattributed containers.
+The runtime **Container** selector scopes cAdvisor panels, while **BEAM instance**
+scopes application metrics; their IDs are intentionally not guessed or joined.
+
+CPU usage is CPU-seconds per second (cores). CPU quota utilization uses only a
+positive configured CFS quota/period, not CPU shares or a guessed host capacity.
+Throttled-period percentage and throttled seconds/second are distinct signals,
+not interchangeable measures of lost CPU. Memory working set excludes inactive
+file cache; total cgroup usage includes cache, and neither equals BEAM allocation.
+Unlimited containers may omit CPU quota/throttling series and report memory
+limit zero. Percentage/limit panels intentionally omit these values rather than
+invent limits or fill missing data with zero. Set workload resource limits in its
+Dokploy deployment only after choosing an appropriate budget; monitoring does
+not change them. No historical container metrics are backfilled.
+
+### Deployment annotations
+
+All four dashboards query native Grafana annotations tagged `tikkit-deployment`.
+These markers are shared across environments: include environment and version
+(or commit) in the annotation text. They are not generated automatically and are
+not filtered by the dashboard's environment selector. Publish manually through
+Grafana or, once deployment ownership is established, from a deployment process
+using `POST /api/annotations` with epoch-millisecond `time`, `text`, and
+`tags: ["tikkit-deployment"]`. Use a suitably permissioned service account; never
+commit its token. An annotation is a marker, not evidence of deployment success.
+
+### Alerts
 
 No active alert rules or contact points are provisioned. Add a contact point
 before adding alert rules; Grafana otherwise attempts its default SMTP notifier.
@@ -135,6 +231,7 @@ indiscriminately page as internal service failures.
 | Metric → trace | Grafana recognizes both Alloy's `trace_id` and Tempo's `traceID` exemplars. |
 | Dashboard → logs/traces | Application-specific Explore links retain the selected time range and identity. |
 | Service dependencies | Tempo generates service-graph metrics; its Grafana data source points to Prometheus. |
+| Traces Drilldown | Tempo's `local-blocks` processor serves TraceQL metrics, independently of Prometheus span metrics. |
 
 Tempo's `service-graphs` and `span-metrics` processors are explicitly enabled.
 Their metrics reflect **received/sampled spans**, not necessarily all requests.
@@ -142,6 +239,15 @@ They complement rather than replace application counters used for SLOs. Service
 maps require suitable client/server/database spans; configuration cannot invent
 missing instrumentation. Existing stored traces are not retroactively turned
 into generator metrics.
+
+Traces Drilldown additionally requires **`local-blocks`**; span metrics and
+service graphs alone do not enable it. Its trace WAL lives on the existing
+Tempo volume, separate from the metrics WAL. `filter_server_spans: false`
+includes client/internal spans, and `flush_to_storage: true` persists metrics
+blocks for historical queries. This adds disk/processing overhead within Tempo,
+not another service. Fresh traces populate these blocks; enabling the processor
+does not backfill them from traces stored before activation. TraceQL metrics are
+experimental in the pinned Tempo 2.8 release.
 
 Prometheus exemplar storage is enabled (default bounded 100,000-exemplar ring),
 and Alloy/Tempo forward exemplars. A producer must still emit them with trace
@@ -237,11 +343,14 @@ This migration intentionally discards existing monitoring data.
 Before deployment, from the repository root:
 
 ```sh
+python3 -m unittest discover -s stacks/monitoring -p test_validate.py
 python3 stacks/monitoring/validate.py
 ```
 
-This uses Python's standard library and the pinned images already cached in
-Docker. It checks manifest interpolation, dashboard JSON/IDs, Alloy, Tempo,
+The fast unit tests exercise broken links, selector compatibility, encoded Explore
+variables, duplicate/nested IDs and layout collisions without Docker.
+The validator uses Python's standard library and the pinned images already cached in
+Docker. It checks manifest interpolation, dashboard JSON/IDs/layout/links/variables, Alloy, Tempo,
 and Prometheus configuration. Validation containers have no network, published
 ports, or persistent data volumes. It does not apply Terraform/Ansible or deploy
 services. Grafana provisioning is additionally validated by Grafana at startup.
@@ -249,14 +358,32 @@ services. Grafana provisioning is additionally validated by Grafana at startup.
 After deployment, verify:
 
 1. All six services are healthy and Grafana's three data sources pass health checks.
-2. The Applications dashboard loads; run its PromQL, LogQL, and TraceQL queries.
+2. All four dashboards load in **TIKKIT**; execute every query model through
+   Grafana `/api/ds/query`, including operation/outcome and instance selections.
+   Check cross-dashboard links preserve time and compatible multi-select values,
+   and organization picker/reset links stay on `/d/tikkit-organizations`.
    Sparse traffic produces gaps/NaN latency, not evidence of a broken pipeline.
+   Verify the failure percentage is undefined without traffic/telemetry, and
+   zero only with confirmed traffic and no matching failures. Use isolated
+   synthetic log/trace fixtures to verify organization counts, validation-call
+   exclusion and exact trace correlation without polluting Tikkit's service data.
+   Native `tikkit-deployment` annotations must be visible across the four
+   dashboards; remove any annotation created solely for a smoke check.
 3. Generate fresh requests; locate their logs and follow the trace link back.
 4. From a trace, check related logs and generic metrics. Span metrics only start
    accumulating after the processors are enabled.
 5. Query Prometheus `/api/v1/query_exemplars` for a histogram and resolve one of
    its trace IDs in Tempo. Both transport and retained trace existence matter.
 6. Confirm Grafana's service map once client/dependency spans have arrived.
+7. Open **Traces Drilldown**, not only a trace table or individual trace. Test
+   its TraceQL metrics query against Tempo's `/api/metrics/query_range`:
+
+   ```traceql
+   {nestedSetParent<0 && true && resource.service.name != nil} | rate() by(resource.service.name)
+   ```
+
+   Check both a recent time window and an older window after metrics blocks
+   have flushed. A successful ordinary trace search does not test this path.
 
 The local Docker Desktop Swarm may have manual overrides (Grafana on port 3000,
 Docker Desktop's socket mount). Preserve those when applying targeted local
