@@ -1,0 +1,6 @@
+---
+# Shared with Terraform. Choose an unused /24 before the first deployment.
+# Do not change a live cluster's subnet during an ordinary rolling release.
+tikkit_network:
+  name: tikkit-cluster
+  subnet: 10.77.42.0/24

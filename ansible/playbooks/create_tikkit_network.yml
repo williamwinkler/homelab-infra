@@ -1,0 +1,53 @@
+---
+- name: Create the Tikkit cluster overlay
+  hosts: dokploy_servers
+  become: true
+  gather_facts: false
+  vars_files:
+    - ../vars/tikkit.yml
+
+  tasks:
+    - name: Require an explicit IPv4 /24 for task address selection
+      ansible.builtin.assert:
+        that:
+          - tikkit_network.subnet is match('^([0-9]{1,3}\.){3}0/24$')
+
+    - name: Inspect the cluster network
+      ansible.builtin.command:
+        argv: [docker, network, inspect, "{{ tikkit_network.name }}"]
+      register: tikkit_network_inspect
+      changed_when: false
+      failed_when: >-
+        tikkit_network_inspect.rc != 0 and
+        'not found' not in tikkit_network_inspect.stderr
+
+    - name: Create the cluster overlay
+      ansible.builtin.command:
+        argv:
+          - docker
+          - network
+          - create
+          - --driver
+          - overlay
+          - --subnet
+          - "{{ tikkit_network.subnet }}"
+          - "{{ tikkit_network.name }}"
+      when: tikkit_network_inspect.rc != 0
+      register: tikkit_network_create
+      changed_when: tikkit_network_create.rc == 0
+
+    - name: Inspect the resulting network
+      ansible.builtin.command:
+        argv: [docker, network, inspect, "{{ tikkit_network.name }}"]
+      register: tikkit_network_details
+      changed_when: false
+
+    - name: Require the expected overlay and subnet without replacing anything
+      ansible.builtin.assert:
+        that:
+          - network.Driver == 'overlay'
+          - network.Scope == 'swarm'
+          - network.IPAM.Config | map(attribute='Subnet') | list == [tikkit_network.subnet]
+        fail_msg: Existing network differs; inspect it before changing the shared network configuration.
+      vars:
+        network: "{{ (tikkit_network_details.stdout | from_json) | first }}"

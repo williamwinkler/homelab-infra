@@ -36,3 +36,10 @@ Git does not provide Terraform state locking.
 Do not commit `.env`, arbitrary `*.tfvars`, `.terraform/`, crash logs, or state
 backup files. The committed lock file lets `terraform init` restore the correct
 provider versions on every supported laptop.
+
+## Tikkit deployment
+
+See [the Tikkit runbook](dokploy/tikkit/README.md) for the static web app,
+Phoenix Swarm rollouts, Cloudflare Tunnel routing, existing database, shared
+secrets, and monitoring integration. Terraform provisions Tikkit without
+deploying it; images are pushed to Docker Hub and releases are started manually in Dokploy.

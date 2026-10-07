@@ -24,6 +24,17 @@ ansible-playbook playbooks/create_observability_network.yml \
   -i inventory --ask-become-pass
 ```
 
+## Prepare the Tikkit cluster overlay
+
+Review the unused IPv4 `/24` in `vars/tikkit.yml`, then run:
+
+```zsh
+ansible-playbook playbooks/create_tikkit_network.yml -i inventory --ask-become-pass
+```
+
+Terraform reads that same subnet to select the API's Erlang distribution IP
+before Swarm publishes task DNS. See the [Tikkit runbook](../terraform/dokploy/tikkit/README.md).
+
 ## Configure friendly homelab names on a Mac
 
 Run this locally on each managed MacBook. It creates one clearly marked,

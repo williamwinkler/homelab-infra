@@ -9,3 +9,11 @@ monitoring = {
   grafana_host         = "grafana.home.arpa"
   prometheus_host      = "prometheus.home.arpa"
 }
+
+tikkit = {
+  api_image         = "docker.io/williamwinkler/tikkit-api:latest"
+  web_image         = "docker.io/williamwinkler/tikkit-web:latest"
+  registry_username = "williamwinkler"
+  host              = "tikkit.life"
+  database_networks = []
+}

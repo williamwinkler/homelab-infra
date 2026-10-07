@@ -257,6 +257,25 @@ discovery.relabel "docker_logs" {
     regex         = "(.+)"
     target_label  = "service_name"
   }
+
+  // Explicit task labels also identify unstructured producers such as Nginx.
+  // JSON application metadata below still takes precedence when present.
+  rule {
+    source_labels = ["__meta_docker_container_label_service_name"]
+    regex         = "(.+)"
+    target_label  = "service_name"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_deployment_environment"]
+    regex         = "(.+)"
+    target_label  = "deployment_environment"
+  }
+  rule {
+    source_labels = ["deployment_environment", "__meta_docker_container_label_deployment_environment_name"]
+    separator     = ";"
+    regex         = ";(.+)"
+    target_label  = "deployment_environment"
+  }
 }
 
 loki.source.docker "local" {
