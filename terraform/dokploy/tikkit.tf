@@ -3,6 +3,62 @@ locals {
   tikkit_api_networks = sort(tolist(setunion(
     toset(["dokploy-network", "observability", local.tikkit_network.name]), var.tikkit.database_networks
   )))
+
+  # Swarm settings. Provider 0.8.0 accepts the *_swarm attributes but never
+  # sends them to Dokploy, so terraform_data.tikkit_swarm below pushes these
+  # through application.update. The app resources repeat them so that refresh
+  # compares them with what Dokploy actually stores.
+  tikkit_swarm = {
+    web = {
+      networkSwarm   = [{ Target = "dokploy-network" }]
+      placementSwarm = { Constraints = ["node.role == manager"] }
+      labelsSwarm = {
+        "service.name"                = "tikkit-web"
+        "deployment.environment.name" = "production"
+      }
+      updateConfigSwarm = { Parallelism = 1, Order = "stop-first" }
+    }
+    api = {
+      networkSwarm = [
+        for network in local.tikkit_api_networks : merge(
+          { Target = network },
+          # This alias exists ONLY on the cluster overlay, never on other networks.
+          network == local.tikkit_network.name ? { Aliases = ["tikkit-api-cluster"] } : {}
+        )
+      ]
+      # Dokploy file mounts live on this single homelab manager.
+      placementSwarm = { Constraints = ["node.role == manager"] }
+      labelsSwarm = {
+        "service.name"                = "tikkit-api"
+        "deployment.environment.name" = "production"
+      }
+      healthCheckSwarm = {
+        Test        = ["CMD", "/bin/sh", "/app/dokploy/healthcheck.sh"]
+        Interval    = 10000000000
+        Timeout     = 8000000000
+        StartPeriod = 120000000000
+        Retries     = 3
+      }
+      # Releases reuse the mutable :latest tag. Pause rather than "roll back" to
+      # a previous service spec that references the very same tag.
+      updateConfigSwarm = {
+        Parallelism     = 1
+        Order           = "start-first"
+        FailureAction   = "pause"
+        Monitor         = 180000000000
+        MaxFailureRatio = 0
+      }
+      rollbackConfigSwarm = {
+        Parallelism     = 1
+        Order           = "start-first"
+        FailureAction   = "pause"
+        Monitor         = 180000000000
+        MaxFailureRatio = 0
+      }
+      restartPolicySwarm   = { Condition = "any", Delay = 5000000000 }
+      stopGracePeriodSwarm = 60000000000
+    }
+  }
 }
 
 resource "dokploy_project" "tikkit" {
@@ -43,13 +99,22 @@ resource "dokploy_application" "tikkit_web" {
   auto_deploy                 = false
   preview_deployments_enabled = false
   deploy_on_create            = false
-  network_swarm               = jsonencode([{ Target = "dokploy-network" }])
-  update_config_swarm         = jsonencode({ Parallelism = 1, Order = "stop-first" })
-  placement_swarm             = jsonencode({ Constraints = ["node.role == manager"] })
-  labels_swarm = jsonencode({
-    "service.name"                = "tikkit-web"
-    "deployment.environment.name" = "production"
-  })
+
+  # Nginx serving static files; idles at a few MiB.
+  cpu_limit          = 500000000 # 0.5 CPU
+  memory_limit       = 134217728 # 128 MiB
+  memory_reservation = 33554432  # 32 MiB
+
+  network_swarm       = jsonencode(local.tikkit_swarm.web.networkSwarm)
+  placement_swarm     = jsonencode(local.tikkit_swarm.web.placementSwarm)
+  labels_swarm        = jsonencode(local.tikkit_swarm.web.labelsSwarm)
+  update_config_swarm = jsonencode(local.tikkit_swarm.web.updateConfigSwarm)
+
+  # Dokploy generates the routing file from dokploy_domain. Provider 0.8.0
+  # overwrites it with "" on any update when traefik_config is unset.
+  lifecycle {
+    ignore_changes = [traefik_config]
+  }
 }
 
 resource "dokploy_application" "tikkit_api" {
@@ -74,16 +139,16 @@ resource "dokploy_application" "tikkit_api" {
   # Dokploy splits this field on spaces, so keep shell logic in a file mount.
   command = "/bin/sh /app/dokploy/start.sh"
 
-  # Only references are stored in Terraform. Set real values in the production
-  # environment's shared variables, NOT this app's environment editor.
+  # Only references are stored in Terraform. Set real values in the TIKKIT
+  # project's shared variables, NOT this app's environment editor.
   # The pinned provider's environment resource does not read/write shared env.
   env = join("\n", [
-    "DATABASE_URL=$${{environment.DATABASE_URL}}",
-    "SECRET_KEY_BASE=$${{environment.SECRET_KEY_BASE}}",
-    "TOKEN_SIGNING_SECRET=$${{environment.TOKEN_SIGNING_SECRET}}",
-    "GOOGLE_CLIENT_ID=$${{environment.GOOGLE_CLIENT_ID}}",
-    "GOOGLE_CLIENT_SECRET=$${{environment.GOOGLE_CLIENT_SECRET}}",
-    "RELEASE_COOKIE=$${{environment.RELEASE_COOKIE}}",
+    "DATABASE_URL=$${{project.DATABASE_URL}}",
+    "SECRET_KEY_BASE=$${{project.SECRET_KEY_BASE}}",
+    "TOKEN_SIGNING_SECRET=$${{project.TOKEN_SIGNING_SECRET}}",
+    "GOOGLE_CLIENT_ID=$${{project.GOOGLE_CLIENT_ID}}",
+    "GOOGLE_CLIENT_SECRET=$${{project.GOOGLE_CLIENT_SECRET}}",
+    "RELEASE_COOKIE=$${{project.RELEASE_COOKIE}}",
     "PHX_HOST=${var.tikkit.host}",
     "WEB_URL=https://${var.tikkit.host}",
     "GOOGLE_REDIRECT_URI=https://${var.tikkit.host}/api/auth/user/google/callback",
@@ -103,51 +168,55 @@ resource "dokploy_application" "tikkit_api" {
   auto_deploy                 = false
   preview_deployments_enabled = false
   deploy_on_create            = false
-  network_swarm = jsonencode([
-    for network in local.tikkit_api_networks : {
-      Target  = network
-      Aliases = network == local.tikkit_network.name ? ["tikkit-api-cluster"] : []
-    }
-  ])
 
+  # The 4-core/8 GiB host also runs Dokploy, Postgres and monitoring. Limits are
+  # per container, and start-first rollouts briefly run two API containers.
+  # The BEAM idles around 350 MiB and sizes its schedulers to the CPU quota.
+  cpu_limit          = 1500000000 # 1.5 CPU
+  cpu_reservation    = 250000000  # 0.25 CPU
+  memory_limit       = 1073741824 # 1 GiB
+  memory_reservation = 402653184  # 384 MiB
+
+  network_swarm           = jsonencode(local.tikkit_swarm.api.networkSwarm)
+  placement_swarm         = jsonencode(local.tikkit_swarm.api.placementSwarm)
+  labels_swarm            = jsonencode(local.tikkit_swarm.api.labelsSwarm)
+  health_check_swarm      = jsonencode(local.tikkit_swarm.api.healthCheckSwarm)
+  update_config_swarm     = jsonencode(local.tikkit_swarm.api.updateConfigSwarm)
+  rollback_config_swarm   = jsonencode(local.tikkit_swarm.api.rollbackConfigSwarm)
+  restart_policy_swarm    = jsonencode(local.tikkit_swarm.api.restartPolicySwarm)
+  stop_grace_period_swarm = local.tikkit_swarm.api.stopGracePeriodSwarm
+
+  # See tikkit_web: keep Dokploy's generated routing file.
   lifecycle {
+    ignore_changes = [traefik_config]
     precondition {
       condition     = can(regex("^([0-9]{1,3}\\.){3}0/24$", local.tikkit_network.subnet)) && can(cidrhost(local.tikkit_network.subnet, 1))
       error_message = "Tikkit's cluster overlay must use a valid IPv4 /24 subnet."
     }
   }
+}
 
-  # Dokploy file mounts live on this single homelab manager.
-  placement_swarm = jsonencode({ Constraints = ["node.role == manager"] })
-  labels_swarm = jsonencode({
-    "service.name"                = "tikkit-api"
-    "deployment.environment.name" = "production"
-  })
-  health_check_swarm = jsonencode({
-    Test        = ["CMD", "/bin/sh", "/app/dokploy/healthcheck.sh"]
-    Interval    = 10000000000
-    Timeout     = 8000000000
-    StartPeriod = 120000000000
-    Retries     = 3
-  })
-  update_config_swarm = jsonencode({
-    Parallelism = 1
-    Order       = "start-first"
-    # Releases reuse the mutable :latest tag. Pause rather than "roll back" to a
-    # previous service spec that references the very same tag.
-    FailureAction   = "pause"
-    Monitor         = 180000000000
-    MaxFailureRatio = 0
-  })
-  rollback_config_swarm = jsonencode({
-    Parallelism     = 1
-    Order           = "start-first"
-    FailureAction   = "pause"
-    Monitor         = 180000000000
-    MaxFailureRatio = 0
-  })
-  restart_policy_swarm    = jsonencode({ Condition = "any", Delay = 5000000000 })
-  stop_grace_period_swarm = 60000000000
+# Push the Swarm settings the provider drops. Re-runs whenever they change; the
+# new settings reach running containers on the next Deploy in Dokploy.
+resource "terraform_data" "tikkit_swarm" {
+  for_each = {
+    web = dokploy_application.tikkit_web.id
+    api = dokploy_application.tikkit_api.id
+  }
+
+  triggers_replace = jsonencode(merge({ applicationId = each.value }, local.tikkit_swarm[each.key]))
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      curl --fail-with-body --silent --show-error -X POST "$DOKPLOY_HOST/application.update" \
+        -H "x-api-key: $DOKPLOY_API_KEY" -H "Content-Type: application/json" --data "$PAYLOAD"
+    EOT
+    environment = {
+      DOKPLOY_HOST    = var.dokploy_host
+      DOKPLOY_API_KEY = var.dokploy_api_key
+      PAYLOAD         = self.triggers_replace
+    }
+  }
 }
 
 resource "dokploy_mount" "tikkit_api_runtime" {

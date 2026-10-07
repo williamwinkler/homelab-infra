@@ -92,7 +92,7 @@ This deployment adds no build arguments or public frontend environment variables
    Review the whole plan, including the existing monitoring resources. Keep the
    repository's pull/apply/commit-state workflow. No Tikkit deployment is triggered
    by creation, domain updates, or image pushes.
-5. In **Tikkit → production → environment/shared variables**, save these six
+5. In the **TIKKIT project's shared variables** (project level), save these six
    values, using `KEY=value` syntax without `export`:
 
    | Variable | Value |
@@ -114,7 +114,7 @@ This deployment adds no build arguments or public frontend environment variables
    `RELEASE_NODE` is generated for each task; never enter a fixed value in the UI.
 
    **Keep credentials in shared variables.** Application environment fields
-   contain `${{environment.NAME}}` references. Provider 0.8.0 reads application
+   contain `${{project.NAME}}` references. Provider 0.8.0 reads application
    env into state, but its project/environment resources do not manage shared
    variable contents. Pasting credentials into the app editor would put them in
    this repo's committed state on refresh. `sensitive` or `ignore_changes` would
@@ -139,9 +139,13 @@ This deployment adds no build arguments or public frontend environment variables
 
 ## Swarm settings and provider support
 
-All required Swarm fields are supported by the already-pinned
-`ahmedali6/dokploy` **0.8.0**. No manual Swarm edits are required. Terraform owns
-the settings; future applies overwrite manual drift. To inspect or reproduce
+The pinned `ahmedali6/dokploy` **0.8.0** accepts the `*_swarm` attributes but
+never sends them to Dokploy. `terraform_data.tikkit_swarm` therefore posts the
+settings from `local.tikkit_swarm` to Dokploy's `application.update` API (with
+`curl`, using the Dokploy API key) whenever they change. The app resources repeat
+the same values, so a refresh shows drift if Dokploy's stored settings differ.
+No manual Swarm edits are required; a changed setting reaches containers on the
+next Deploy. To inspect or reproduce
 them in the UI, open **api → Advanced → Cluster Settings → Swarm Settings**:
 
 | UI setting | Terraform configuration |
