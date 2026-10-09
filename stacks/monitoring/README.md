@@ -108,8 +108,17 @@ copying live Prometheus, Loki, or Tempo data.
 Datasources and dashboards are read-only provisioning bind mounts from this
 repository, outside Grafana's persistent data volume. The existing overview
 lives in **Platform**. The four Tikkit dashboards live in **TIKKIT** (folder UID
-`tikkit`), with provider path `/etc/grafana/dashboards/tikkit`. Mount individual
-JSON files, not the data volume or a directory that hides existing provisioning.
+`tikkit`). Dokploy deletes and re-clones its `code/` checkout on every deploy, so
+bind mounts into the checkout keep pointing at the deleted files. Grafana therefore
+mounts the stable Dokploy stack directory above the checkout read-only at
+`/srv/monitoring-stack`, and the dashboard providers read
+`/srv/monitoring-stack/code/stacks/monitoring/grafana/dashboards/{platform,applications}`.
+A Dokploy deploy is picked up within the providers' 30-second scan, without a
+Grafana restart; dashboards may briefly disappear if a scan lands mid-clone.
+That mount also exposes Dokploy's stack `.env` files to Grafana read-only, so keep
+secrets out of them. Datasource, provider and alerting files are still mounted
+individually and are only read at Grafana startup. Never mount the data volume or
+a directory that hides existing provisioning.
 Other applications should have their own provider/folder rather than share
 Tikkit's folder. The shared collectors and data sources remain application-agnostic.
 
@@ -391,8 +400,8 @@ service updates; do not copy them into the private Dokploy production manifest.
 Confirm `docker context show` and service bind-mount sources before updating.
 A Prometheus flag change and Tempo processor activation require their services
 to restart; Alloy supports its reload endpoint. Provisioning can be reloaded via
-Grafana's admin API, while a new dashboard bind mount requires a Grafana service
-update. Never remove the stack or its volumes to apply these changes.
+Grafana's admin API. Dashboard JSON changes need only a Dokploy deploy; datasource,
+provider or alerting provisioning changes still require a Grafana service update. Never remove the stack or its volumes to apply these changes.
 
 ## Operations
 

@@ -15,11 +15,10 @@ services:
       - ./grafana/provisioning/datasources/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
       - ./grafana/provisioning/dashboards/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
       - ./grafana/provisioning/alerting/delete-rules.yml:/etc/grafana/provisioning/alerting/delete-rules.yml:ro
-      - ./grafana/dashboards/platform/overview.json:/etc/grafana/provisioning/dashboards/overview.json:ro
-      - ./grafana/dashboards/applications/tikkit-api.json:/etc/grafana/dashboards/tikkit/tikkit-api.json:ro
-      - ./grafana/dashboards/applications/tikkit-rpc.json:/etc/grafana/dashboards/tikkit/tikkit-rpc.json:ro
-      - ./grafana/dashboards/applications/tikkit-organizations.json:/etc/grafana/dashboards/tikkit/tikkit-organizations.json:ro
-      - ./grafana/dashboards/applications/tikkit-runtime.json:/etc/grafana/dashboards/tikkit/tikkit-runtime.json:ro
+      # Dokploy re-clones its code/ checkout on every deploy, which strands bind
+      # mounts inside it. Mount the stable directory above the checkout so
+      # dashboard providers see each new clone without a Grafana restart.
+      - ../../..:/srv/monitoring-stack:ro
     networks:
       observability:
         aliases: [grafana]
