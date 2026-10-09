@@ -115,7 +115,7 @@ Tikkit's folder. The shared collectors and data sources remain application-agnos
 
 | Dashboard | Question | Scope |
 | --- | --- | --- |
-| **Service health** (`/d/tikkit-api`) | Is there a likely user-impacting problem? | Environment; overall RPC traffic, internal/unclassified failures, latency, DB/BEAM context, container CPU/memory and pipeline sample age. |
+| **Service health** (`/d/tikkit-api`) | Is there a likely user-impacting problem, and how is Tikkit used? | Environment; authenticated WebSocket connections (total and per instance), browser RPC vs MCP tool calls, overall RPC traffic, internal/unclassified failures, latency, DB/BEAM context, container CPU/memory and pipeline sample age. |
 | **RPC investigation** (`/d/tikkit-rpc`) | Which operation is failing or slow? | Environment/action/operation/outcome; error breakdown, slowest actions, traces and completion logs. DB context stays service-wide. |
 | **Organization activity** (`/d/tikkit-organizations`) | Which organizations are active or affected? | Environment/action/organization; unassigned failures remain in RPC investigation. |
 | **Database & runtime** (`/d/tikkit-runtime`) | Where is the bottleneck? | Environment plus separate BEAM-instance/container selectors; Ecto/BEAM and container CPU, CFS throttling, memory and limits. Service logs are not instance-filtered. |
