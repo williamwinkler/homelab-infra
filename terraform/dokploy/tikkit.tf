@@ -171,8 +171,10 @@ resource "dokploy_application" "tikkit_api" {
 
   # The 4-core/8 GiB host also runs Dokploy, Postgres and monitoring. Limits are
   # per container, and start-first rollouts briefly run two API containers.
-  # The BEAM idles around 350 MiB and sizes its schedulers to the CPU quota.
-  cpu_limit          = 1500000000 # 1.5 CPU
+  # The BEAM idles around 350 MiB and sizes its schedulers to the CPU quota,
+  # rounding down: a 1.5 quota ran one scheduler and capped load tests at
+  # ~100 req/s, so keep this a whole number of CPUs.
+  cpu_limit          = 2000000000 # 2 CPU
   cpu_reservation    = 250000000  # 0.25 CPU
   memory_limit       = 1073741824 # 1 GiB
   memory_reservation = 402653184  # 384 MiB

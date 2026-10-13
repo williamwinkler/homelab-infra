@@ -271,6 +271,7 @@ once every 30 seconds to probe these public HTTPS endpoints:
 
 - `https://hscards.william-winkler.com`
 - `https://william-winkler.com`
+- `https://tikkit.life`
 
 The `blackbox_https` job exposes `probe_success` (`1` is online, `0` is a
 failed probe), response timing, DNS, TLS, and HTTP-status metrics. The
