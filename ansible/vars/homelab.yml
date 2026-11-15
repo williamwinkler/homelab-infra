@@ -10,3 +10,4 @@ homelab_hosts_entries:
     names:
       - grafana.home.arpa
       - prometheus.home.arpa
+      - adguard.home.arpa
