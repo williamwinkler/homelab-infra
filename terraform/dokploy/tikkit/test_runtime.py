@@ -60,6 +60,12 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(self.run_script("start.sh").returncode, 0)
         self.assertFalse(marker.exists())
 
+    def test_start_raises_open_file_limit_for_the_server(self):
+        self.stub("server", "ulimit -n")
+        result = self.run_script("start.sh")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "65536")
+
     def test_start_refuses_missing_cluster_interface(self):
         self.env["LOCAL_IPS"] = "10.0.1.9"
         result = self.run_script("start.sh")

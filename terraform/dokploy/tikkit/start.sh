@@ -26,4 +26,9 @@ export RELEASE_NODE="tikkit@$task_ip"
 printf '%s\n' "$RELEASE_NODE" > /tmp/tikkit-release-node
 # A container restart keeps /tmp; check readiness again for each BEAM.
 rm -f /tmp/tikkit-cluster-ready
+
+# Docker's default soft limit is 1024 open files, and each WebSocket holds one. Running
+# out would also block ordinary requests and database connections.
+ulimit -n 65536
+
 exec /app/bin/server
